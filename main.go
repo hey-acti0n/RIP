@@ -172,13 +172,30 @@ func (s *Server) handleDetail(w http.ResponseWriter, r *http.Request) {
 
 // API endpoints to make GET requests visible in Network
 func (s *Server) apiServices(w http.ResponseWriter, r *http.Request) {
-	// GET /api/services?q=...&requestId=...
+	// GET /api/services?q=...&thickness=...&requestId=...
 	q := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("q")))
+	thickness := strings.TrimSpace(r.URL.Query().Get("thickness"))
 	requestID := r.URL.Query().Get("requestId")
 	_ = requestID // carried in response for demo
 	var list []Service
 	for _, sv := range s.store.services {
-		if q == "" || strings.Contains(strings.ToLower(sv.Name), q) {
+		// Фильтр по названию
+		nameMatch := q == "" || strings.Contains(strings.ToLower(sv.Name), q)
+
+		// Фильтр по толщине
+		thicknessMatch := true
+		if thickness != "" {
+			thicknessMatch = false
+			for _, prop := range sv.Props {
+				if strings.Contains(strings.ToLower(prop), "толщина") &&
+					strings.Contains(strings.ToLower(prop), strings.ToLower(thickness)) {
+					thicknessMatch = true
+					break
+				}
+			}
+		}
+
+		if nameMatch && thicknessMatch {
 			list = append(list, sv)
 		}
 	}

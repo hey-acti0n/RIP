@@ -42,6 +42,16 @@
             value="{{.Query}}"
           />
           <input
+            id="thickness"
+            name="thickness"
+            class="input"
+            type="number"
+            placeholder="Толщина (мм)"
+            style="min-width: 150px;"
+            min="1"
+            step="1"
+          />
+          <input
             type="hidden"
             name="requestId"
             id="requestId"
@@ -73,6 +83,6 @@
 
       <section id="cards" class="grid"></section>
     </main>
-    <script src="/static/js/app.js?v=4"></script>
+    <script src="/static/js/app.js?v=15"></script>
   </body>
 </html>
