@@ -1,0 +1,187 @@
+/* Базовые стили. Заимствования: 
+   - Радиусы и тени карточек вдохновлены карточками на сайте Apple (закругления ~16px, мягкие тени, нейтральная палитра серого).
+   - Поле поиска — капсула с иконкой, аналогично поиску на сайте Apple/Store.
+   - Красная кнопка — стиль как у CTA-кнопок многих e-commerce (яркий контраст). 
+*/
+:root {
+  --bg: #2f3133;
+  --bg2: #1f2123;
+  --text: #e8e8e8;
+  --muted: #b7b7b7;
+  --accent: #ff2d2d;
+  --card: #26282a;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+  color: var(--text);
+}
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px;
+}
+.gradient-bg {
+  background: radial-gradient(
+      1200px 1200px at 80% 60%,
+      #7d8085 0%,
+      #2f3133 55%,
+      #1b1d1f 100%
+    )
+    fixed;
+}
+.header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.logo-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  background: #3a3d41;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+.brand-text {
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.search-bar {
+  margin-top: 24px;
+}
+#searchForm {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.input {
+  flex: 1;
+  min-width: 240px;
+  background: #3a3d41;
+  color: var(--text);
+  border: none;
+  border-radius: 12px;
+  padding: 14px 16px;
+  outline: none;
+}
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 60px;
+  border-radius: 12px;
+  background: #3a3d4100;
+  text-decoration: none;
+  color: #fff;
+  cursor: pointer;
+}
+.badge {
+  background: var(--accent);
+  color: #fff;
+  border-radius: 12px;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+.note.small {
+  color: var(--muted);
+  margin-top: 8px;
+  font-size: 12px;
+}
+
+.grid {
+  margin-top: 24px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(280px, 1fr));
+  gap: 28px;
+}
+.card {
+  background: linear-gradient(135deg, #222426 0%, #2b2d2f 100%);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.card h3 {
+  margin: 0;
+}
+.card .muted {
+  color: var(--muted);
+}
+.btn {
+  display: inline-block;
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: #3a3d41;
+  color: #fff;
+  text-decoration: none;
+  cursor: pointer;
+}
+.btn.primary {
+  background: var(--accent);
+}
+
+.panel {
+  background: linear-gradient(135deg, #222426 0%, #2b2d2f 100%);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  margin-bottom: 24px;
+}
+.calc-form {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.center {
+  text-align: center;
+}
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.result-card {
+  background: linear-gradient(135deg, #222426 0%, #2b2d2f 100%);
+  border-radius: 16px;
+  padding: 20px;
+}
+.muted {
+  color: var(--muted);
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+.detail-image {
+  width: 100%;
+  max-width: 380px;
+  border-radius: 12px;
+  background: #555;
+}
+
+@media (max-width: 780px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{.Title}}</title>
+    <link rel="stylesheet" href="/static/css/styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body class="gradient-bg">
+    <header class="container header">
+      <div class="brand">
+        <a href="/" style="text-decoration: none">
+          <img
+            src="{{.AssetsBase}}/logo.png"
+            alt="UltraRezina"
+            style="
+              width: 510px;
+              height: 80px;
+              border-radius: 8px;
+              object-fit: contain;
+              background: #ffffff00;
+            "
+          />
+        </a>
+      </div>
+    </header>
+    <main class="container">
+      <a class="btn" href="/">Назад</a>
+      <button
+        class="btn"
+        id="clearCartBtn"
+        style="background: #ff4444; color: white; margin-left: 10px"
+      >
+        Очистить корзину
+      </button>
+      <section class="panel">
+        <h2>Введите данные для расчёта</h2>
+        <form id="calcForm" class="calc-form">
+          <input
+            class="input"
+            type="number"
+            step="0.01"
+            name="mass"
+            id="mass"
+            placeholder="Масса оборудования, кг"
+            required
+          />
+          <input
+            class="input"
+            type="number"
+            step="0.01"
+            name="frequency"
+            id="frequency"
+            placeholder="Рабочая частота, Гц"
+            required
+          />
+          <input
+            type="hidden"
+            name="requestId"
+            id="requestId"
+            value="{{.RequestID}}"
+          />
+          <button class="btn primary" type="submit">Рассчитать</button>
+        </form>
+      </section>
+
+      <h2 class="center">Результат</h2>
+      <section id="results" class="stack"></section>
+    </main>
+    <script src="/static/js/app.js?v=4"></script>
+  </body>
+</html>
