@@ -51,11 +51,6 @@
               src="{{.Service.ImageURL}}"
               alt="{{.Service.Name}}"
             />
-            <form method="POST" action="/add">
-              <input type="hidden" name="requestId" value="{{.RequestID}}" />
-              <input type="hidden" name="serviceId" value="{{.Service.ID}}" />
-              <button class="btn primary" type="submit">Купить</button>
-            </form>
           </div>
         </div>
       </section>
