@@ -32,16 +32,6 @@
     </header>
     <main class="container">
       <a class="btn" href="/">Назад</a>
-      <form method="POST" action="/clear" style="display:inline-block;">
-        <input type="hidden" name="requestId" value="{{.RequestID}}" />
-        <button
-          class="btn"
-          style="background: #ff4444; color: white; margin-left: 10px"
-          type="submit"
-        >
-          Очистить корзину
-        </button>
-      </form>
       <section class="panel">
         <h2>Введите данные для расчёта</h2>
         <form method="POST" action="/calc" class="calc-form">
@@ -69,11 +59,9 @@
             id="requestId"
             value="{{.RequestID}}"
           />
-          <button class="btn primary" type="submit">Рассчитать</button>
         </form>
       </section>
 
-      <h2 class="center">Результат</h2>
       <section id="results" class="stack">
         {{if .CartServices}}
           {{/* Для каждого товара своя плитка результата */}}
@@ -87,23 +75,11 @@
                 {{range $j, $p := $svc.Props}}{{if lt $j 3}}{{if $j}}<br>{{end}}{{$p}}{{end}}{{end}}
               </div>
             </div>
-            {{/* Если расчёт выполнен — подставим его именно к этой плитке */}}
-            {{- $has := false -}}
-            {{- range $.Results -}}
-              {{- if eq .ServiceName $svc.Name -}}
-                <div class="muted">Результаты расчёта</div>
-                <div>Собственная частота: <b>{{.NaturalHz}} Гц</b></div>
-                <div>Ожидаемая изоляция: <b>{{.Isolation}}%</b></div>
-                {{- $has = true -}}
-              {{- end -}}
-            {{- end -}}
-            {{- if not $has -}}
-              <div class="muted">Заполните форму выше и нажмите "Рассчитать"</div>
-            {{- end -}}
+            <div class="muted">Товар добавлен в корзину</div>
           </div>
           {{end}}
         {{else}}
-          <div class="muted">Добавьте товары для расчета.</div>
+          <div class="muted">Корзина пуста. Добавьте товары из каталога.</div>
         {{end}}
       </section>
     </main>
