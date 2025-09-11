@@ -51,17 +51,14 @@
               src="{{.Service.ImageURL}}"
               alt="{{.Service.Name}}"
             />
-            <a
-              class="btn primary"
-              id="buyBtn"
-              data-id="{{.Service.ID}}"
-              href="#"
-              >Купить</a
-            >
+            <form method="POST" action="/add">
+              <input type="hidden" name="requestId" value="{{.RequestID}}" />
+              <input type="hidden" name="serviceId" value="{{.Service.ID}}" />
+              <button class="btn primary" type="submit">Купить</button>
+            </form>
           </div>
         </div>
       </section>
     </main>
-    <script src="/static/js/app.js?v=15"></script>
   </body>
 </html>

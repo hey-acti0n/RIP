@@ -7,6 +7,7 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -26,6 +27,14 @@ type Service struct {
 type CartItem struct {
 	ServiceID int `json:"serviceId"`
 	Quantity  int `json:"quantity"`
+}
+
+// Calculation result (used for API and SSR)
+type Result struct {
+	ServiceID   int     `json:"serviceId"`
+	ServiceName string  `json:"serviceName"`
+	NaturalHz   float64 `json:"naturalHz"`
+	Isolation   float64 `json:"isolationPercent"`
 }
 
 // In-memory storage (later replace with PostgreSQL)
@@ -108,22 +117,33 @@ type Server struct {
 }
 
 func (s *Server) handleCatalog(w http.ResponseWriter, r *http.Request) {
-	// q: search filter, requestId: to track cart
+	// SSR catalog with filters and cart badge
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
+	thickness := strings.TrimSpace(r.URL.Query().Get("thickness"))
 	reqID := r.URL.Query().Get("requestId")
 	if reqID == "" {
 		reqID = "1" // demo default
 	}
+
+	services := s.filterServices(q, thickness)
+	count := s.cartCount(reqID)
+
 	data := struct {
 		Title      string
 		Query      string
+		Thickness  string
 		RequestID  string
 		AssetsBase string
+		Services   []Service
+		CartCount  int
 	}{
 		Title:      "Каталог материалов",
 		Query:      q,
+		Thickness:  thickness,
 		RequestID:  reqID,
 		AssetsBase: s.assetsBase,
+		Services:   services,
+		CartCount:  count,
 	}
 	if err := tmpl.ExecuteTemplate(w, "catalog.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -132,15 +152,51 @@ func (s *Server) handleCatalog(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleCalc(w http.ResponseWriter, r *http.Request) {
-	reqID := r.URL.Query().Get("requestId")
+	// GET renders page. POST performs calculation and shows results.
+	reqID := r.FormValue("requestId")
+	if reqID == "" {
+		reqID = r.URL.Query().Get("requestId")
+	}
 	if reqID == "" {
 		reqID = "1"
 	}
+
+	s.store.mu.RLock()
+	items := append([]CartItem(nil), s.store.carts[reqID]...)
+	s.store.mu.RUnlock()
+
+	// Build services for cart display
+	var cartServices []Service
+	for _, it := range items {
+		if sv, ok := s.findService(it.ServiceID); ok {
+			cartServices = append(cartServices, sv)
+		}
+	}
+
+	var results []Result
+	if r.Method == http.MethodPost {
+		mass, _ := strconv.ParseFloat(r.FormValue("mass"), 64)
+		freq, _ := strconv.ParseFloat(r.FormValue("frequency"), 64)
+		results = s.calculateResults(items, mass, freq)
+	}
+
 	data := struct {
-		Title      string
-		RequestID  string
-		AssetsBase string
-	}{Title: "Расчёт", RequestID: reqID, AssetsBase: s.assetsBase}
+		Title        string
+		RequestID    string
+		AssetsBase   string
+		CartItems    []CartItem
+		CartServices []Service
+		Results      []Result
+		CartCount    int
+	}{
+		Title:        "Расчёт",
+		RequestID:    reqID,
+		AssetsBase:   s.assetsBase,
+		CartItems:    items,
+		CartServices: cartServices,
+		Results:      results,
+		CartCount:    s.cartCount(reqID),
+	}
 	if err := tmpl.ExecuteTemplate(w, "calc.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -155,14 +211,22 @@ func (s *Server) handleDetail(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
+	reqID := r.URL.Query().Get("requestId")
+	if reqID == "" {
+		reqID = "1"
+	}
 	data := struct {
 		Title      string
 		Service    Service
 		AssetsBase string
+		RequestID  string
+		CartCount  int
 	}{
 		Title:      svc.Name,
 		Service:    svc,
 		AssetsBase: s.assetsBase,
+		RequestID:  reqID,
+		CartCount:  s.cartCount(reqID),
 	}
 	if err := tmpl.ExecuteTemplate(w, "detail.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -269,35 +333,7 @@ func (s *Server) apiCalc(w http.ResponseWriter, r *http.Request) {
 	items := append([]CartItem(nil), s.store.carts[requestID]...)
 	s.store.mu.RUnlock()
 
-	// Simplified vibration isolation calculation demo per item
-	type Result struct {
-		ServiceID   int     `json:"serviceId"`
-		ServiceName string  `json:"serviceName"`
-		NaturalHz   float64 `json:"naturalHz"`
-		Isolation   float64 `json:"isolationPercent"`
-	}
-	var results []Result
-	for _, it := range items {
-		// Находим название товара по ID
-		serviceName := "Неизвестный товар"
-		if service, ok := s.findService(it.ServiceID); ok {
-			serviceName = service.Name
-		}
-
-		// demo formula: fn = sqrt(k/m), assume k depends on quantity
-		stiffness := 1000.0 * float64(it.Quantity)
-		if mass <= 0 {
-			mass = 1
-		}
-		fn := math.Sqrt(stiffness/mass) / (2 * math.Pi)
-		iso := 100.0 * (1 - (fn / (freq + fn)))
-		results = append(results, Result{
-			ServiceID:   it.ServiceID,
-			ServiceName: serviceName,
-			NaturalHz:   round(fn, 2),
-			Isolation:   round(iso, 1),
-		})
-	}
+	results := s.calculateResults(items, mass, freq)
 	writeJSON(w, map[string]any{"requestId": requestID, "results": results})
 }
 
@@ -316,6 +352,123 @@ func writeJSON(w http.ResponseWriter, v any) {
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
 	_ = enc.Encode(v)
+}
+
+// Helpers for SSR
+func (s *Server) filterServices(q, thickness string) []Service {
+	q = strings.ToLower(strings.TrimSpace(q))
+	thickness = strings.TrimSpace(thickness)
+	var list []Service
+	for _, sv := range s.store.services {
+		nameMatch := q == "" || strings.Contains(strings.ToLower(sv.Name), q)
+		thicknessMatch := true
+		if thickness != "" {
+			thicknessMatch = false
+			for _, prop := range sv.Props {
+				if strings.Contains(strings.ToLower(prop), "толщина") &&
+					strings.Contains(strings.ToLower(prop), strings.ToLower(thickness)) {
+					thicknessMatch = true
+					break
+				}
+			}
+		}
+		if nameMatch && thicknessMatch {
+			list = append(list, sv)
+		}
+	}
+	return list
+}
+
+func (s *Server) cartCount(requestID string) int {
+	s.store.mu.RLock()
+	defer s.store.mu.RUnlock()
+	sum := 0
+	for _, it := range s.store.carts[requestID] {
+		sum += it.Quantity
+	}
+	return sum
+}
+
+func (s *Server) calculateResults(items []CartItem, mass, freq float64) []Result {
+	var results []Result
+	for _, it := range items {
+		serviceName := "Неизвестный товар"
+		if service, ok := s.findService(it.ServiceID); ok {
+			serviceName = service.Name
+		}
+		stiffness := 1000.0 * float64(it.Quantity)
+		if mass <= 0 {
+			mass = 1
+		}
+		fn := math.Sqrt(stiffness/mass) / (2 * math.Pi)
+		iso := 100.0 * (1 - (fn / (freq + fn)))
+		results = append(results, Result{
+			ServiceID:   it.ServiceID,
+			ServiceName: serviceName,
+			NaturalHz:   round(fn, 2),
+			Isolation:   round(iso, 1),
+		})
+	}
+	return results
+}
+
+// Actions for SSR (forms instead of JS)
+func (s *Server) handleAdd(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	requestID := r.FormValue("requestId")
+	if requestID == "" {
+		requestID = "1"
+	}
+	serviceID, _ := strconv.Atoi(r.FormValue("serviceId"))
+	s.store.mu.Lock()
+	items := s.store.carts[requestID]
+	exists := false
+	for i := range items {
+		if items[i].ServiceID == serviceID {
+			exists = true
+			break
+		}
+	}
+	if !exists {
+		items = append(items, CartItem{ServiceID: serviceID, Quantity: 1})
+		s.store.carts[requestID] = items
+	} else {
+		s.store.carts[requestID] = items
+	}
+	s.store.mu.Unlock()
+
+	// Если добавление из детальной — ведём на расчёт, иначе остаёмся на каталоге
+	ref := r.Referer()
+	if ref != "" {
+		if u, err := url.Parse(ref); err == nil {
+			if strings.HasPrefix(u.Path, "/detail/") {
+				http.Redirect(w, r, "/calc?requestId="+requestID, http.StatusSeeOther)
+				return
+			}
+		}
+	}
+	if ref == "" {
+		ref = "/?requestId=" + requestID
+	}
+	http.Redirect(w, r, ref, http.StatusSeeOther)
+}
+
+func (s *Server) handleClear(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	requestID := r.FormValue("requestId")
+	if requestID == "" {
+		requestID = "1"
+	}
+	s.store.mu.Lock()
+	s.store.carts[requestID] = []CartItem{}
+	s.store.mu.Unlock()
+	http.Redirect(w, r, "/calc?requestId="+requestID, http.StatusSeeOther)
 }
 
 func round(x float64, p int) float64 {
@@ -351,10 +504,14 @@ func main() {
 	fs := http.FileServer(http.Dir(staticDir))
 	http.Handle("/static/", http.StripPrefix("/static/", fs))
 
-	// Routing: 3 pages
+	// Routing: pages
 	http.HandleFunc("/", srv.handleCatalog)
 	http.HandleFunc("/calc", srv.handleCalc)
 	http.HandleFunc("/detail/", srv.handleDetail)
+
+	// SSR actions (no JS)
+	http.HandleFunc("/add", srv.handleAdd)
+	http.HandleFunc("/clear", srv.handleClear)
 
 	// API: 4 example GET requests for demo
 	http.HandleFunc("/api/services", srv.apiServices)

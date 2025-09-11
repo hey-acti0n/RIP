@@ -32,16 +32,19 @@
     </header>
     <main class="container">
       <a class="btn" href="/">Назад</a>
-      <button
-        class="btn"
-        id="clearCartBtn"
-        style="background: #ff4444; color: white; margin-left: 10px"
-      >
-        Очистить корзину
-      </button>
+      <form method="POST" action="/clear" style="display:inline-block;">
+        <input type="hidden" name="requestId" value="{{.RequestID}}" />
+        <button
+          class="btn"
+          style="background: #ff4444; color: white; margin-left: 10px"
+          type="submit"
+        >
+          Очистить корзину
+        </button>
+      </form>
       <section class="panel">
         <h2>Введите данные для расчёта</h2>
-        <form id="calcForm" class="calc-form">
+        <form method="POST" action="/calc" class="calc-form">
           <input
             class="input"
             type="number"
@@ -71,8 +74,38 @@
       </section>
 
       <h2 class="center">Результат</h2>
-      <section id="results" class="stack"></section>
+      <section id="results" class="stack">
+        {{if .CartServices}}
+          {{/* Для каждого товара своя плитка результата */}}
+          {{range $i, $svc := .CartServices}}
+          <div class="result-card">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+              <div style="flex: 1;">
+                <div style="font-weight: 600; margin-bottom: 8px;">{{$svc.Name}}</div>
+              </div>
+              <div class="muted" style="font-size: 11px; line-height: 1.3; margin-left: 15px; max-width: 200px; text-align: right;">
+                {{range $j, $p := $svc.Props}}{{if lt $j 3}}{{if $j}}<br>{{end}}{{$p}}{{end}}{{end}}
+              </div>
+            </div>
+            {{/* Если расчёт выполнен — подставим его именно к этой плитке */}}
+            {{- $has := false -}}
+            {{- range $.Results -}}
+              {{- if eq .ServiceName $svc.Name -}}
+                <div class="muted">Результаты расчёта</div>
+                <div>Собственная частота: <b>{{.NaturalHz}} Гц</b></div>
+                <div>Ожидаемая изоляция: <b>{{.Isolation}}%</b></div>
+                {{- $has = true -}}
+              {{- end -}}
+            {{- end -}}
+            {{- if not $has -}}
+              <div class="muted">Заполните форму выше и нажмите "Рассчитать"</div>
+            {{- end -}}
+          </div>
+          {{end}}
+        {{else}}
+          <div class="muted">Добавьте товары для расчета.</div>
+        {{end}}
+      </section>
     </main>
-    <script src="/static/js/app.js?v=15"></script>
   </body>
 </html>
