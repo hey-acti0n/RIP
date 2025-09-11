@@ -7,7 +7,6 @@ import (
 	"log"
 	"math"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -440,16 +439,8 @@ func (s *Server) handleAdd(w http.ResponseWriter, r *http.Request) {
 	}
 	s.store.mu.Unlock()
 
-	// Если добавление из детальной — ведём на расчёт, иначе остаёмся на каталоге
+	// Всегда остаёмся на каталоге после добавления
 	ref := r.Referer()
-	if ref != "" {
-		if u, err := url.Parse(ref); err == nil {
-			if strings.HasPrefix(u.Path, "/detail/") {
-				http.Redirect(w, r, "/calc?requestId="+requestID, http.StatusSeeOther)
-				return
-			}
-		}
-	}
 	if ref == "" {
 		ref = "/?requestId=" + requestID
 	}
