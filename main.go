@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"html/template"
 	"log"
@@ -50,7 +49,7 @@ type Store struct {
 func newStore() *Store {
 	// MinIO is exposed at localhost:9000 by docker-compose.
 	// For demo purposes, we assume bucket "images" and a few objects present.
-	minioHost := getenv("MINIO_PUBLIC_ENDPOINT", "http://localhost:9000")
+	minioHost := Getenv("MINIO_PUBLIC_ENDPOINT", "http://localhost:9000")
 	mk := func(name, obj string) Service {
 		return Service{
 			ID:          len(name) + len(obj),
@@ -74,12 +73,6 @@ func newStore() *Store {
 }
 
 // Utilities
-func getenv(key, def string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return def
-}
 
 // Templates
 var tmpl *template.Template
@@ -187,7 +180,17 @@ func (s *Server) handleCalc(w http.ResponseWriter, r *http.Request) {
 		for _, it := range rs {
 			items = append(items, CartItem{ServiceID: it.ServiceID, Quantity: it.Quantity})
 			props := buildProps(it.Service)
-			cartServices = append(cartServices, Service{ID: it.Service.ID, Name: it.Service.Name, Description: it.Service.Description, ImageURL: it.Service.ImageURL, Props: props})
+			// Формируем полный URL для MinIO
+			imageURL := it.Service.ImageURL
+			if !strings.HasPrefix(imageURL, "http") {
+				// Если URL уже начинается с /images/, добавляем только базовый хост
+				if strings.HasPrefix(imageURL, "/images/") {
+					imageURL = "http://localhost:9000" + imageURL
+				} else {
+					imageURL = s.assetsBase + imageURL
+				}
+			}
+			cartServices = append(cartServices, Service{ID: it.Service.ID, Name: it.Service.Name, Description: it.Service.Description, ImageURL: imageURL, Props: props})
 		}
 	} else {
 		s.store.mu.RLock()
@@ -299,7 +302,7 @@ func (s *Server) apiServices(w http.ResponseWriter, r *http.Request) {
 		Count     int       `json:"count"`
 		Items     []Service `json:"items"`
 	}
-	writeJSON(w, resp{RequestID: requestID, Count: len(list), Items: list})
+	WriteJSON(w, resp{RequestID: requestID, Count: len(list), Items: list})
 }
 
 func (s *Server) apiAddToCart(w http.ResponseWriter, r *http.Request) {
@@ -312,7 +315,7 @@ func (s *Server) apiAddToCart(w http.ResponseWriter, r *http.Request) {
 	for i := range items {
 		if items[i].ServiceID == serviceID {
 			// Товар уже в корзине
-			writeJSON(w, map[string]any{
+			WriteJSON(w, map[string]any{
 				"requestId": requestID,
 				"items":     items,
 				"error":     "Товар уже добавлен в корзину",
@@ -323,7 +326,7 @@ func (s *Server) apiAddToCart(w http.ResponseWriter, r *http.Request) {
 	}
 	items = append(items, CartItem{ServiceID: serviceID, Quantity: 1})
 	s.store.carts[requestID] = items
-	writeJSON(w, map[string]any{
+	WriteJSON(w, map[string]any{
 		"requestId": requestID,
 		"items":     items,
 		"success":   true,
@@ -337,7 +340,7 @@ func (s *Server) apiCart(w http.ResponseWriter, r *http.Request) {
 	s.store.mu.RLock()
 	items := append([]CartItem(nil), s.store.carts[requestID]...)
 	s.store.mu.RUnlock()
-	writeJSON(w, map[string]any{"requestId": requestID, "items": items})
+	WriteJSON(w, map[string]any{"requestId": requestID, "items": items})
 }
 
 func (s *Server) apiClearCart(w http.ResponseWriter, r *http.Request) {
@@ -346,7 +349,7 @@ func (s *Server) apiClearCart(w http.ResponseWriter, r *http.Request) {
 	s.store.mu.Lock()
 	defer s.store.mu.Unlock()
 	s.store.carts[requestID] = []CartItem{}
-	writeJSON(w, map[string]any{
+	WriteJSON(w, map[string]any{
 		"requestId": requestID,
 		"items":     []CartItem{},
 		"success":   true,
@@ -365,7 +368,7 @@ func (s *Server) apiCalc(w http.ResponseWriter, r *http.Request) {
 	s.store.mu.RUnlock()
 
 	results := s.calculateResults(items, mass, freq)
-	writeJSON(w, map[string]any{"requestId": requestID, "results": results})
+	WriteJSON(w, map[string]any{"requestId": requestID, "results": results})
 }
 
 // Helpers
@@ -375,7 +378,17 @@ func (s *Server) findService(id int) (Service, bool) {
 		if err := s.db.First(&d, id).Error; err != nil {
 			return Service{}, false
 		}
-		return Service{ID: d.ID, Name: d.Name, Description: d.Description, ImageURL: d.ImageURL, Props: buildProps(d)}, true
+		// Формируем полный URL для MinIO
+		imageURL := d.ImageURL
+		if !strings.HasPrefix(imageURL, "http") {
+			// Если URL уже начинается с /images/, добавляем только базовый хост
+			if strings.HasPrefix(imageURL, "/images/") {
+				imageURL = "http://localhost:9000" + imageURL
+			} else {
+				imageURL = s.assetsBase + imageURL
+			}
+		}
+		return Service{ID: d.ID, Name: d.Name, Description: d.Description, ImageURL: imageURL, Props: buildProps(d)}, true
 	}
 	for _, sv := range s.store.services {
 		if sv.ID == id {
@@ -383,13 +396,6 @@ func (s *Server) findService(id int) (Service, bool) {
 		}
 	}
 	return Service{}, false
-}
-
-func writeJSON(w http.ResponseWriter, v any) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	enc := json.NewEncoder(w)
-	enc.SetIndent("", "  ")
-	_ = enc.Encode(v)
 }
 
 // setURLParam заменяет или добавляет query-параметр в URL
@@ -424,7 +430,17 @@ func (s *Server) filterServices(q, thickness string) []Service {
 		_ = tx.Find(&listDB).Error
 		var out []Service
 		for _, d := range listDB {
-			out = append(out, Service{ID: d.ID, Name: d.Name, Description: d.Description, ImageURL: d.ImageURL, Props: buildProps(d)})
+			// Формируем полный URL для MinIO
+			imageURL := d.ImageURL
+			if !strings.HasPrefix(imageURL, "http") {
+				// Если URL уже начинается с /images/, добавляем только базовый хост
+				if strings.HasPrefix(imageURL, "/images/") {
+					imageURL = "http://localhost:9000" + imageURL
+				} else {
+					imageURL = s.assetsBase + imageURL
+				}
+			}
+			out = append(out, Service{ID: d.ID, Name: d.Name, Description: d.Description, ImageURL: imageURL, Props: buildProps(d)})
 		}
 		return out
 	}
@@ -582,8 +598,9 @@ func round(x float64, p int) float64 {
 
 func main() {
 	tmpl = mustParseTemplates()
-	minioHost := getenv("MINIO_PUBLIC_ENDPOINT", "http://localhost:9000")
-	assetsBase := fmt.Sprintf("%s/%s", minioHost, "images")
+	minioHost := Getenv("MINIO_PUBLIC_ENDPOINT", "http://localhost:9000")
+	// Настраиваем базовый URL для MinIO bucket
+	assetsBase := fmt.Sprintf("%s/images", minioHost)
 	srv := &Server{store: newStore(), assetsBase: assetsBase}
 
 	// Находим путь к статическим файлам
@@ -629,7 +646,7 @@ func main() {
 	srv.db = db
 	MountORMRoutes(db)
 
-	addr := getenv("ADDR", ":8080")
+	addr := Getenv("ADDR", ":8080")
 	log.Printf("UltraRezina server listening on %s", addr)
 	log.Fatal(http.ListenAndServe(addr, nil))
 

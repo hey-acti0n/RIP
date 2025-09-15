@@ -1,7 +1,10 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -51,9 +54,25 @@ type RequestService struct {
 
 func (RequestService) TableName() string { return "request_services" }
 
+// Getenv helper function
+func Getenv(key, def string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return def
+}
+
+// WriteJSON helper function
+func WriteJSON(w http.ResponseWriter, v any) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	_ = enc.Encode(v)
+}
+
 // InitDB establishes connection using env DATABASE_DSN or docker-compose defaults
 func InitDB() *gorm.DB {
-	dsn := getenv("DATABASE_DSN", "host=localhost user=postgres password=root dbname=rip port=5432 sslmode=disable TimeZone=UTC")
+	dsn := Getenv("DATABASE_DSN", "host=localhost user=postgres password=root dbname=rip port=5432 sslmode=disable TimeZone=UTC")
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		panic(err)
@@ -81,7 +100,34 @@ func MountORMRoutes(db *gorm.DB) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		writeJSON(w, map[string]any{"count": len(items), "items": items})
+		// Формируем полные URL для MinIO
+		minioHost := Getenv("MINIO_PUBLIC_ENDPOINT", "http://localhost:9000")
+		assetsBase := fmt.Sprintf("%s/images", minioHost)
+		var itemsWithURLs []map[string]any
+		for _, item := range items {
+			itemMap := map[string]any{
+				"id":          item.ID,
+				"name":        item.Name,
+				"description": item.Description,
+				"is_active":   item.IsActive,
+				"image_url":   item.ImageURL,
+				"density":     item.Density,
+				"thickness":   item.Thickness,
+				"material":    item.Material,
+				"created_at":  item.CreatedAt,
+			}
+			// Если image_url не полный URL, добавляем базовый URL MinIO
+			if !strings.HasPrefix(item.ImageURL, "http") {
+				// Если URL уже начинается с /images/, добавляем только базовый хост
+				if strings.HasPrefix(item.ImageURL, "/images/") {
+					itemMap["image_url"] = "http://localhost:9000" + item.ImageURL
+				} else {
+					itemMap["image_url"] = assetsBase + item.ImageURL
+				}
+			}
+			itemsWithURLs = append(itemsWithURLs, itemMap)
+		}
+		WriteJSON(w, map[string]any{"count": len(items), "items": itemsWithURLs})
 	})
 
 	// 2) POST add service to current draft request via ORM
@@ -121,7 +167,7 @@ func MountORMRoutes(db *gorm.DB) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		writeJSON(w, map[string]any{"requestId": req.ID, "success": true})
+		WriteJSON(w, map[string]any{"requestId": req.ID, "success": true})
 	})
 
 	// 3) GET current draft request via ORM
@@ -133,7 +179,7 @@ func MountORMRoutes(db *gorm.DB) {
 		var req Request
 		if err := db.Where("creator_id = ? AND status = ?", userID, "pending").First(&req).Error; err != nil {
 			if err == gorm.ErrRecordNotFound {
-				writeJSON(w, map[string]any{"exists": false})
+				WriteJSON(w, map[string]any{"exists": false})
 				return
 			}
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -141,7 +187,7 @@ func MountORMRoutes(db *gorm.DB) {
 		}
 		var items []RequestService
 		_ = db.Preload("Service").Where("request_id = ?", req.ID).Order("sort_order, service_id").Find(&items).Error
-		writeJSON(w, map[string]any{"exists": true, "request": req, "items": items})
+		WriteJSON(w, map[string]any{"exists": true, "request": req, "items": items})
 	})
 
 	// 4) POST logical delete via raw SQL (no ORM)
@@ -159,7 +205,7 @@ func MountORMRoutes(db *gorm.DB) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		writeJSON(w, map[string]any{"deleted": true})
+		WriteJSON(w, map[string]any{"deleted": true})
 	})
 
 	// 5) GET request by id: do not allow viewing deleted
@@ -174,7 +220,7 @@ func MountORMRoutes(db *gorm.DB) {
 			http.Error(w, "request not found or deleted", http.StatusNotFound)
 			return
 		}
-		writeJSON(w, req)
+		WriteJSON(w, req)
 	})
 
 	// DEBUG: constraints of requests table
@@ -188,6 +234,6 @@ func MountORMRoutes(db *gorm.DB) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		writeJSON(w, rows)
+		WriteJSON(w, rows)
 	})
 }
