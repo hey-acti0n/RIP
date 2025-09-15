@@ -86,9 +86,9 @@
       <section id="cards" class="grid">
         {{range .Services}}
         <div class="card">
+          <h3 style="margin: 0; margin-bottom: 8px;">{{.Name}}</h3>
+          <img class="card-image" src="{{.ImageURL}}" alt="{{.Name}}" />
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px;">
-            <h3 style="margin: 0; flex: 1;">{{.Name}}</h3>
-            <div class="muted" style="font-size: 12px; margin-left: 10px;">Характеристики</div>
           </div>
           <div style="display: flex; justify-content: space-between; align-items: flex-start;">
             <div class="actions" style="flex: 1;">

@@ -110,17 +110,28 @@ body {
 .card {
   background: linear-gradient(135deg, #222426 0%, #2b2d2f 100%);
   border-radius: 16px;
-  padding: 20px;
+  padding: 10px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
+  min-height: 100px;
 }
 .card h3 {
   margin: 0;
 }
 .card .muted {
   color: var(--muted);
+}
+.card-image {
+  width: 90%;
+  height: 100px;
+
+  object-fit: cover;
+  background: #3a3d41;
+  display: block;
+  margin-left: 20px;
+  margin-right: 5px;
 }
 .btn {
   display: inline-block;
