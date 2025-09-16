@@ -1,4 +1,4 @@
-package main
+package repository
 
 import (
 	"encoding/json"
@@ -77,14 +77,12 @@ func InitDB() *gorm.DB {
 	if err != nil {
 		panic(err)
 	}
-	// AutoMigrate to ensure tables exist (safe for demo)
 	_ = db.AutoMigrate(&DBService{}, &Request{}, &RequestService{})
 	return db
 }
 
 // MountORMRoutes registers endpoints required by assignment
 func MountORMRoutes(db *gorm.DB) {
-	// 1) GET services search via ORM
 	http.HandleFunc("/orm/services", func(w http.ResponseWriter, r *http.Request) {
 		q := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("q")))
 		thickness := strings.TrimSpace(r.URL.Query().Get("thickness"))
@@ -100,12 +98,11 @@ func MountORMRoutes(db *gorm.DB) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		// Формируем полные URL для MinIO
 		minioHost := Getenv("MINIO_PUBLIC_ENDPOINT", "http://localhost:9000")
 		assetsBase := fmt.Sprintf("%s/images", minioHost)
 		var itemsWithURLs []map[string]any
 		for _, item := range items {
-			itemMap := map[string]any{
+			m := map[string]any{
 				"id":          item.ID,
 				"name":        item.Name,
 				"description": item.Description,
@@ -116,21 +113,18 @@ func MountORMRoutes(db *gorm.DB) {
 				"material":    item.Material,
 				"created_at":  item.CreatedAt,
 			}
-			// Если image_url не полный URL, добавляем базовый URL MinIO
 			if !strings.HasPrefix(item.ImageURL, "http") {
-				// Если URL уже начинается с /images/, добавляем только базовый хост
 				if strings.HasPrefix(item.ImageURL, "/images/") {
-					itemMap["image_url"] = "http://localhost:9000" + item.ImageURL
+					m["image_url"] = "http://localhost:9000" + item.ImageURL
 				} else {
-					itemMap["image_url"] = assetsBase + item.ImageURL
+					m["image_url"] = assetsBase + item.ImageURL
 				}
 			}
-			itemsWithURLs = append(itemsWithURLs, itemMap)
+			itemsWithURLs = append(itemsWithURLs, m)
 		}
 		WriteJSON(w, map[string]any{"count": len(items), "items": itemsWithURLs})
 	})
 
-	// 2) POST add service to current draft request via ORM
 	http.HandleFunc("/orm/request/add", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -145,8 +139,6 @@ func MountORMRoutes(db *gorm.DB) {
 			http.Error(w, "serviceId required", http.StatusBadRequest)
 			return
 		}
-
-		// find or create draft request (используем default БД для status)
 		var req Request
 		if err := db.Where("creator_id = ? AND status = ?", userID, "pending").First(&req).Error; err != nil {
 			if err == gorm.ErrRecordNotFound {
@@ -160,9 +152,7 @@ func MountORMRoutes(db *gorm.DB) {
 				return
 			}
 		}
-
 		rs := RequestService{RequestID: req.ID, ServiceID: serviceID, Quantity: 1}
-		// upsert by composite PK
 		if err := db.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "request_id"}, {Name: "service_id"}}, DoUpdates: clause.Assignments(map[string]any{"quantity": gorm.Expr("request_services.quantity + 1")})}).Create(&rs).Error; err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -170,7 +160,6 @@ func MountORMRoutes(db *gorm.DB) {
 		WriteJSON(w, map[string]any{"requestId": req.ID, "success": true})
 	})
 
-	// 3) GET current draft request via ORM
 	http.HandleFunc("/orm/request/current", func(w http.ResponseWriter, r *http.Request) {
 		userID, _ := strconv.Atoi(r.URL.Query().Get("userId"))
 		if userID == 0 {
@@ -190,7 +179,6 @@ func MountORMRoutes(db *gorm.DB) {
 		WriteJSON(w, map[string]any{"exists": true, "request": req, "items": items})
 	})
 
-	// 4) POST logical delete via raw SQL (no ORM)
 	http.HandleFunc("/orm/request/delete", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -208,7 +196,6 @@ func MountORMRoutes(db *gorm.DB) {
 		WriteJSON(w, map[string]any{"deleted": true})
 	})
 
-	// 5) GET request by id: do not allow viewing deleted
 	http.HandleFunc("/orm/request", func(w http.ResponseWriter, r *http.Request) {
 		id := r.URL.Query().Get("id")
 		if id == "" {
@@ -221,19 +208,5 @@ func MountORMRoutes(db *gorm.DB) {
 			return
 		}
 		WriteJSON(w, req)
-	})
-
-	// DEBUG: constraints of requests table
-	http.HandleFunc("/debug/requests/constraints", func(w http.ResponseWriter, r *http.Request) {
-		type Row struct{ Def string }
-		var rows []Row
-		q := `SELECT pg_get_constraintdef(c.oid) as def
-			FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid
-			WHERE t.relname='requests' AND contype='c'` // only CHECK
-		if err := db.Raw(q).Scan(&rows).Error; err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		WriteJSON(w, rows)
 	})
 }

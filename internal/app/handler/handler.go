@@ -1,4 +1,4 @@
-package main
+package handler
 
 import (
 	"fmt"
@@ -7,16 +7,15 @@ import (
 	"math"
 	"net/http"
 	"net/url"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
 
+	"rip/internal/app/repository"
+
 	"gorm.io/gorm"
 )
 
-// Domain models
 type Service struct {
 	ID          int      `json:"id"`
 	Name        string   `json:"name"`
@@ -30,7 +29,6 @@ type CartItem struct {
 	Quantity  int `json:"quantity"`
 }
 
-// Calculation result (used for API and SSR)
 type Result struct {
 	ServiceID   int     `json:"serviceId"`
 	ServiceName string  `json:"serviceName"`
@@ -38,24 +36,19 @@ type Result struct {
 	Isolation   float64 `json:"isolationPercent"`
 }
 
-// In-memory storage (later replace with PostgreSQL)
 type Store struct {
 	services []Service
-	// requestId -> items
-	carts map[string][]CartItem
-	mu    sync.RWMutex
+	carts    map[string][]CartItem
+	mu       sync.RWMutex
 }
 
-func newStore() *Store {
-	// MinIO is exposed at localhost:9000 by docker-compose.
-	// For demo purposes, we assume bucket "images" and a few objects present.
-	minioHost := Getenv("MINIO_PUBLIC_ENDPOINT", "http://localhost:9000")
+func newStore(assetsBase string) *Store {
 	mk := func(name, obj string) Service {
 		return Service{
 			ID:          len(name) + len(obj),
 			Name:        name,
 			Description: "Виброизоляционный материал для промышленного оборудования",
-			ImageURL:    fmt.Sprintf("%s/%s/%s", minioHost, "images", obj),
+			ImageURL:    fmt.Sprintf("%s/%s", assetsBase, obj),
 			Props:       []string{"Плотность: 120 кг/м³", "Толщина: 10 мм", "Материал: EPDM"},
 		}
 	}
@@ -72,48 +65,20 @@ func newStore() *Store {
 	}
 }
 
-// Utilities
-
-// Templates
-var tmpl *template.Template
-
-func mustParseTemplates() *template.Template {
-	// Пробуем разные пути для поиска templates
-	var base string
-	possiblePaths := []string{
-		"templates",                      // текущая директория
-		"RIP/templates",                  // если запускаем из Documents
-		filepath.Join("..", "templates"), // если запускаем из подпапки
-	}
-
-	for _, path := range possiblePaths {
-		if _, err := os.Stat(path); err == nil {
-			base = path
-			break
-		}
-	}
-
-	if base == "" {
-		log.Fatal("Не удалось найти папку templates. Проверьте, что вы запускаете программу из правильной директории.")
-	}
-
-	t := template.Must(template.ParseFiles(
-		filepath.Join(base, "catalog.html"),
-		filepath.Join(base, "calc.html"),
-		filepath.Join(base, "detail.html"),
-	))
-	return t
-}
-
-// Handlers (Controllers)
 type Server struct {
 	store      *Store
 	assetsBase string
 	db         *gorm.DB
+	tmpl       *template.Template
 }
 
-// buildProps builds a list of characteristics from DB values
-func buildProps(dbSvc DBService) []string {
+func NewServer(assetsBase string, tmpl *template.Template) *Server {
+	return &Server{store: newStore(assetsBase), assetsBase: assetsBase, tmpl: tmpl}
+}
+
+func (s *Server) AttachDB(db *gorm.DB) { s.db = db }
+
+func buildProps(dbSvc repository.DBService) []string {
 	var props []string
 	if dbSvc.Density != nil {
 		props = append(props, fmt.Sprintf("Плотность: %.2f", *dbSvc.Density))
@@ -127,18 +92,15 @@ func buildProps(dbSvc DBService) []string {
 	return props
 }
 
-func (s *Server) handleCatalog(w http.ResponseWriter, r *http.Request) {
-	// SSR catalog with filters and cart badge
+func (s *Server) HandleCatalog(w http.ResponseWriter, r *http.Request) {
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
 	thickness := strings.TrimSpace(r.URL.Query().Get("thickness"))
 	reqID := r.URL.Query().Get("requestId")
 	if reqID == "" {
-		reqID = "1" // demo default
+		reqID = "1"
 	}
-
 	services := s.filterServices(q, thickness)
 	count := s.cartCount(reqID)
-
 	data := struct {
 		Title      string
 		Query      string
@@ -156,14 +118,13 @@ func (s *Server) handleCatalog(w http.ResponseWriter, r *http.Request) {
 		Services:   services,
 		CartCount:  count,
 	}
-	if err := tmpl.ExecuteTemplate(w, "catalog.html", data); err != nil {
+	if err := s.tmpl.ExecuteTemplate(w, "catalog.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 }
 
-func (s *Server) handleCalc(w http.ResponseWriter, r *http.Request) {
-	// GET renders page. POST performs calculation and shows results.
+func (s *Server) HandleCalc(w http.ResponseWriter, r *http.Request) {
 	reqID := r.FormValue("requestId")
 	if reqID == "" {
 		reqID = r.URL.Query().Get("requestId")
@@ -171,19 +132,16 @@ func (s *Server) handleCalc(w http.ResponseWriter, r *http.Request) {
 	if reqID == "" {
 		reqID = "1"
 	}
-
 	var items []CartItem
 	var cartServices []Service
 	if s.db != nil {
-		var rs []RequestService
+		var rs []repository.RequestService
 		_ = s.db.Preload("Service").Where("request_id = ?", reqID).Find(&rs).Error
 		for _, it := range rs {
 			items = append(items, CartItem{ServiceID: it.ServiceID, Quantity: it.Quantity})
 			props := buildProps(it.Service)
-			// Формируем полный URL для MinIO
 			imageURL := it.Service.ImageURL
 			if !strings.HasPrefix(imageURL, "http") {
-				// Если URL уже начинается с /images/, добавляем только базовый хост
 				if strings.HasPrefix(imageURL, "/images/") {
 					imageURL = "http://localhost:9000" + imageURL
 				} else {
@@ -202,18 +160,15 @@ func (s *Server) handleCalc(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-
 	var results []Result
 	if r.Method == http.MethodPost {
 		mass, _ := strconv.ParseFloat(r.FormValue("mass"), 64)
 		freq, _ := strconv.ParseFloat(r.FormValue("frequency"), 64)
 		results = s.calculateResults(items, mass, freq)
-		// смена статуса заявки на completed в БД
 		if s.db != nil {
 			_ = s.db.Exec("UPDATE requests SET status = 'completed' WHERE id = ?", reqID).Error
 		}
 	}
-
 	data := struct {
 		Title        string
 		RequestID    string
@@ -231,13 +186,13 @@ func (s *Server) handleCalc(w http.ResponseWriter, r *http.Request) {
 		Results:      results,
 		CartCount:    s.cartCount(reqID),
 	}
-	if err := tmpl.ExecuteTemplate(w, "calc.html", data); err != nil {
+	if err := s.tmpl.ExecuteTemplate(w, "calc.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 }
 
-func (s *Server) handleDetail(w http.ResponseWriter, r *http.Request) {
+func (s *Server) HandleDetail(w http.ResponseWriter, r *http.Request) {
 	idStr := strings.TrimPrefix(r.URL.Path, "/detail/")
 	id, _ := strconv.Atoi(idStr)
 	svc, ok := s.findService(id)
@@ -262,51 +217,39 @@ func (s *Server) handleDetail(w http.ResponseWriter, r *http.Request) {
 		RequestID:  reqID,
 		CartCount:  s.cartCount(reqID),
 	}
-	if err := tmpl.ExecuteTemplate(w, "detail.html", data); err != nil {
+	if err := s.tmpl.ExecuteTemplate(w, "detail.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 }
 
-// API endpoints to make GET requests visible in Network
-func (s *Server) apiServices(w http.ResponseWriter, r *http.Request) {
-	// GET /api/services?q=...&thickness=...&requestId=...
+// API
+func (s *Server) ApiServices(w http.ResponseWriter, r *http.Request) {
 	q := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("q")))
 	thickness := strings.TrimSpace(r.URL.Query().Get("thickness"))
 	requestID := r.URL.Query().Get("requestId")
-	_ = requestID // carried in response for demo
+	_ = requestID
 	var list []Service
 	for _, sv := range s.store.services {
-		// Фильтр по названию
 		nameMatch := q == "" || strings.Contains(strings.ToLower(sv.Name), q)
-
-		// Фильтр по толщине
 		thicknessMatch := true
 		if thickness != "" {
 			thicknessMatch = false
 			for _, prop := range sv.Props {
-				if strings.Contains(strings.ToLower(prop), "толщина") &&
-					strings.Contains(strings.ToLower(prop), strings.ToLower(thickness)) {
+				if strings.Contains(strings.ToLower(prop), "толщина") && strings.Contains(strings.ToLower(prop), strings.ToLower(thickness)) {
 					thicknessMatch = true
 					break
 				}
 			}
 		}
-
 		if nameMatch && thicknessMatch {
 			list = append(list, sv)
 		}
 	}
-	type resp struct {
-		RequestID string    `json:"requestId"`
-		Count     int       `json:"count"`
-		Items     []Service `json:"items"`
-	}
-	WriteJSON(w, resp{RequestID: requestID, Count: len(list), Items: list})
+	repository.WriteJSON(w, map[string]any{"requestId": requestID, "count": len(list), "items": list})
 }
 
-func (s *Server) apiAddToCart(w http.ResponseWriter, r *http.Request) {
-	// GET /api/add?requestId=...&serviceId=...
+func (s *Server) ApiAddToCart(w http.ResponseWriter, r *http.Request) {
 	requestID := r.URL.Query().Get("requestId")
 	serviceID, _ := strconv.Atoi(r.URL.Query().Get("serviceId"))
 	s.store.mu.Lock()
@@ -314,74 +257,51 @@ func (s *Server) apiAddToCart(w http.ResponseWriter, r *http.Request) {
 	items := s.store.carts[requestID]
 	for i := range items {
 		if items[i].ServiceID == serviceID {
-			// Товар уже в корзине
-			WriteJSON(w, map[string]any{
-				"requestId": requestID,
-				"items":     items,
-				"error":     "Товар уже добавлен в корзину",
-				"success":   false,
-			})
+			repository.WriteJSON(w, map[string]any{"requestId": requestID, "items": items, "error": "Товар уже добавлен в корзину", "success": false})
 			return
 		}
 	}
 	items = append(items, CartItem{ServiceID: serviceID, Quantity: 1})
 	s.store.carts[requestID] = items
-	WriteJSON(w, map[string]any{
-		"requestId": requestID,
-		"items":     items,
-		"success":   true,
-		"message":   "Товар добавлен в корзину",
-	})
+	repository.WriteJSON(w, map[string]any{"requestId": requestID, "items": items, "success": true, "message": "Товар добавлен в корзину"})
 }
 
-func (s *Server) apiCart(w http.ResponseWriter, r *http.Request) {
-	// GET /api/cart?requestId=...
+func (s *Server) ApiCart(w http.ResponseWriter, r *http.Request) {
 	requestID := r.URL.Query().Get("requestId")
 	s.store.mu.RLock()
 	items := append([]CartItem(nil), s.store.carts[requestID]...)
 	s.store.mu.RUnlock()
-	WriteJSON(w, map[string]any{"requestId": requestID, "items": items})
+	repository.WriteJSON(w, map[string]any{"requestId": requestID, "items": items})
 }
 
-func (s *Server) apiClearCart(w http.ResponseWriter, r *http.Request) {
-	// GET /api/clear?requestId=...
+func (s *Server) ApiClearCart(w http.ResponseWriter, r *http.Request) {
 	requestID := r.URL.Query().Get("requestId")
 	s.store.mu.Lock()
 	defer s.store.mu.Unlock()
 	s.store.carts[requestID] = []CartItem{}
-	WriteJSON(w, map[string]any{
-		"requestId": requestID,
-		"items":     []CartItem{},
-		"success":   true,
-		"message":   "Корзина очищена",
-	})
+	repository.WriteJSON(w, map[string]any{"requestId": requestID, "items": []CartItem{}, "success": true, "message": "Корзина очищена"})
 }
 
-func (s *Server) apiCalc(w http.ResponseWriter, r *http.Request) {
-	// GET /api/calc?requestId=...&mass=..&frequency=..
+func (s *Server) ApiCalc(w http.ResponseWriter, r *http.Request) {
 	requestID := r.URL.Query().Get("requestId")
 	mass, _ := strconv.ParseFloat(r.URL.Query().Get("mass"), 64)
 	freq, _ := strconv.ParseFloat(r.URL.Query().Get("frequency"), 64)
-
 	s.store.mu.RLock()
 	items := append([]CartItem(nil), s.store.carts[requestID]...)
 	s.store.mu.RUnlock()
-
 	results := s.calculateResults(items, mass, freq)
-	WriteJSON(w, map[string]any{"requestId": requestID, "results": results})
+	repository.WriteJSON(w, map[string]any{"requestId": requestID, "results": results})
 }
 
-// Helpers
+// helpers
 func (s *Server) findService(id int) (Service, bool) {
 	if s.db != nil {
-		var d DBService
+		var d repository.DBService
 		if err := s.db.First(&d, id).Error; err != nil {
 			return Service{}, false
 		}
-		// Формируем полный URL для MinIO
 		imageURL := d.ImageURL
 		if !strings.HasPrefix(imageURL, "http") {
-			// Если URL уже начинается с /images/, добавляем только базовый хост
 			if strings.HasPrefix(imageURL, "/images/") {
 				imageURL = "http://localhost:9000" + imageURL
 			} else {
@@ -398,7 +318,6 @@ func (s *Server) findService(id int) (Service, bool) {
 	return Service{}, false
 }
 
-// setURLParam заменяет или добавляет query-параметр в URL
 func setURLParam(rawURL, key, val string) string {
 	if rawURL == "" {
 		return ""
@@ -413,14 +332,12 @@ func setURLParam(rawURL, key, val string) string {
 	return u.String()
 }
 
-// Helpers for SSR
 func (s *Server) filterServices(q, thickness string) []Service {
 	q = strings.ToLower(strings.TrimSpace(q))
 	thickness = strings.TrimSpace(thickness)
-	// ORM-backed filter when DB is available
 	if s.db != nil {
-		var listDB []DBService
-		tx := s.db.Model(&DBService{}).Where("is_active = ?", true)
+		var listDB []repository.DBService
+		tx := s.db.Model(&repository.DBService{}).Where("is_active = ?", true)
 		if q != "" {
 			tx = tx.Where("LOWER(name) LIKE ?", "%"+q+"%")
 		}
@@ -430,10 +347,8 @@ func (s *Server) filterServices(q, thickness string) []Service {
 		_ = tx.Find(&listDB).Error
 		var out []Service
 		for _, d := range listDB {
-			// Формируем полный URL для MinIO
 			imageURL := d.ImageURL
 			if !strings.HasPrefix(imageURL, "http") {
-				// Если URL уже начинается с /images/, добавляем только базовый хост
 				if strings.HasPrefix(imageURL, "/images/") {
 					imageURL = "http://localhost:9000" + imageURL
 				} else {
@@ -451,8 +366,7 @@ func (s *Server) filterServices(q, thickness string) []Service {
 		if thickness != "" {
 			thicknessMatch = false
 			for _, prop := range sv.Props {
-				if strings.Contains(strings.ToLower(prop), "толщина") &&
-					strings.Contains(strings.ToLower(prop), strings.ToLower(thickness)) {
+				if strings.Contains(strings.ToLower(prop), "толщина") && strings.Contains(strings.ToLower(prop), strings.ToLower(thickness)) {
 					thicknessMatch = true
 					break
 				}
@@ -468,7 +382,7 @@ func (s *Server) filterServices(q, thickness string) []Service {
 func (s *Server) cartCount(requestID string) int {
 	if s.db != nil {
 		var sum int64
-		_ = s.db.Model(&RequestService{}).Where("request_id = ?", requestID).Select("COALESCE(SUM(quantity),0)").Scan(&sum).Error
+		_ = s.db.Model(&repository.RequestService{}).Where("request_id = ?", requestID).Select("COALESCE(SUM(quantity),0)").Scan(&sum).Error
 		return int(sum)
 	}
 	s.store.mu.RLock()
@@ -493,18 +407,12 @@ func (s *Server) calculateResults(items []CartItem, mass, freq float64) []Result
 		}
 		fn := math.Sqrt(stiffness/mass) / (2 * math.Pi)
 		iso := 100.0 * (1 - (fn / (freq + fn)))
-		results = append(results, Result{
-			ServiceID:   it.ServiceID,
-			ServiceName: serviceName,
-			NaturalHz:   round(fn, 2),
-			Isolation:   round(iso, 1),
-		})
+		results = append(results, Result{ServiceID: it.ServiceID, ServiceName: serviceName, NaturalHz: round(fn, 2), Isolation: round(iso, 1)})
 	}
 	return results
 }
 
-// Actions for SSR (forms instead of JS)
-func (s *Server) handleAdd(w http.ResponseWriter, r *http.Request) {
+func (s *Server) HandleAdd(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -513,14 +421,12 @@ func (s *Server) handleAdd(w http.ResponseWriter, r *http.Request) {
 	serviceID, _ := strconv.Atoi(r.FormValue("serviceId"))
 	log.Printf("/add POST: requestId=%q serviceId=%d", requestID, serviceID)
 	if s.db != nil {
-		// userId условно 1 (можно взять из сессии позже)
 		userID := 1
-		var req Request
+		var req repository.Request
 		err := s.db.Where("id = ? AND status <> 'rejected'", requestID).First(&req).Error
 		if err == gorm.ErrRecordNotFound || requestID == "" {
-			// ищем черновик пользователя либо создаём
 			if err := s.db.Where("creator_id = ? AND status = 'pending'", userID).First(&req).Error; err == gorm.ErrRecordNotFound {
-				if err := s.db.Model(&Request{}).Create(map[string]any{"creator_id": userID, "status": "pending"}).Error; err != nil {
+				if err := s.db.Model(&repository.Request{}).Create(map[string]any{"creator_id": userID, "status": "pending"}).Error; err != nil {
 					log.Printf("create draft request error: %v", err)
 					http.Error(w, "db error", http.StatusInternalServerError)
 					return
@@ -529,13 +435,11 @@ func (s *Server) handleAdd(w http.ResponseWriter, r *http.Request) {
 			}
 			requestID = strconv.Itoa(req.ID)
 		}
-		// upsert позиции
 		if err := s.db.Exec("INSERT INTO request_services (request_id, service_id, quantity) VALUES (?, ?, 1) ON CONFLICT (request_id, service_id) DO UPDATE SET quantity = request_services.quantity + 1", requestID, serviceID).Error; err != nil {
 			log.Printf("add to request_services error: %v", err)
 			http.Error(w, "db error", http.StatusInternalServerError)
 			return
 		}
-		// гарантируем статус pending у заявки
 		_ = s.db.Exec("UPDATE requests SET status = 'pending' WHERE id = ? AND status <> 'pending'", requestID).Error
 	} else {
 		if requestID == "" {
@@ -558,8 +462,6 @@ func (s *Server) handleAdd(w http.ResponseWriter, r *http.Request) {
 		}
 		s.store.mu.Unlock()
 	}
-
-	// Всегда остаёмся на каталоге после добавления
 	ref := r.Referer()
 	if ref == "" {
 		ref = "/?requestId=" + requestID
@@ -570,14 +472,13 @@ func (s *Server) handleAdd(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, ref, http.StatusSeeOther)
 }
 
-func (s *Server) handleClear(w http.ResponseWriter, r *http.Request) {
+func (s *Server) HandleClear(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 	requestID := r.FormValue("requestId")
 	if s.db != nil {
-		// помечаем заявку как rejected и очищаем её позиции
 		_ = s.db.Exec("UPDATE requests SET status = 'rejected' WHERE id = ?", requestID).Error
 		_ = s.db.Exec("DELETE FROM request_services WHERE request_id = ?", requestID).Error
 	} else {
@@ -591,63 +492,4 @@ func (s *Server) handleClear(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/calc?requestId="+requestID, http.StatusSeeOther)
 }
 
-func round(x float64, p int) float64 {
-	pow := math.Pow(10, float64(p))
-	return math.Round(x*pow) / pow
-}
-
-func main() {
-	tmpl = mustParseTemplates()
-	minioHost := Getenv("MINIO_PUBLIC_ENDPOINT", "http://localhost:9000")
-	// Настраиваем базовый URL для MinIO bucket
-	assetsBase := fmt.Sprintf("%s/images", minioHost)
-	srv := &Server{store: newStore(), assetsBase: assetsBase}
-
-	// Находим путь к статическим файлам
-	var staticDir string
-	possibleStaticPaths := []string{
-		"static",                      // текущая директория
-		"RIP/static",                  // если запускаем из Documents
-		filepath.Join("..", "static"), // если запускаем из подпапки
-	}
-
-	for _, path := range possibleStaticPaths {
-		if _, err := os.Stat(path); err == nil {
-			staticDir = path
-			break
-		}
-	}
-
-	if staticDir == "" {
-		staticDir = "static" // fallback
-	}
-
-	fs := http.FileServer(http.Dir(staticDir))
-	http.Handle("/static/", http.StripPrefix("/static/", fs))
-
-	// Routing: pages
-	http.HandleFunc("/", srv.handleCatalog)
-	http.HandleFunc("/calc", srv.handleCalc)
-	http.HandleFunc("/detail/", srv.handleDetail)
-
-	// SSR actions (no JS)
-	http.HandleFunc("/add", srv.handleAdd)
-	http.HandleFunc("/clear", srv.handleClear)
-
-	// API: 4 example GET requests for demo
-	http.HandleFunc("/api/services", srv.apiServices)
-	http.HandleFunc("/api/add", srv.apiAddToCart)
-	http.HandleFunc("/api/cart", srv.apiCart)
-	http.HandleFunc("/api/clear", srv.apiClearCart)
-	http.HandleFunc("/api/calc", srv.apiCalc)
-
-	// Подключаем БД и монтируем ORM/SQL маршруты
-	db := InitDB()
-	srv.db = db
-	MountORMRoutes(db)
-
-	addr := Getenv("ADDR", ":8080")
-	log.Printf("UltraRezina server listening on %s", addr)
-	log.Fatal(http.ListenAndServe(addr, nil))
-
-}
+func round(x float64, p int) float64 { pow := math.Pow(10, float64(p)); return math.Round(x*pow) / pow }
