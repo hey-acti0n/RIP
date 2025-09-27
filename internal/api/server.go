@@ -66,6 +66,7 @@ func Start() {
 	// pages
 	http.HandleFunc("/", srv.HandleCatalog)
 	http.HandleFunc("/calc", srv.HandleCalc)
+	http.HandleFunc("/order/", srv.HandleOrder)
 	http.HandleFunc("/detail/", srv.HandleDetail)
 
 	// actions

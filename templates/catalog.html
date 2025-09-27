@@ -15,7 +15,7 @@
   <body class="gradient-bg">
     <header class="container header">
       <div class="brand">
-        <a href="/?requestId={{.RequestID}}" style="text-decoration: none">
+        <a href="/{{.RequestID}}" style="text-decoration: none">
           <img
             src="{{.AssetsBase}}/logo.png"
             alt="UltraRezina"
@@ -74,7 +74,7 @@
             <a
               class="icon-btn"
               id="cartLink"
-              href="/calc?requestId={{.RequestID}}"
+              href="/order/{{.RequestID}}"
               ><img
                 src="{{.AssetsBase}}/cart.png"
                 alt="Корзина"
@@ -108,7 +108,7 @@
           </div>
           <div style="display: flex; justify-content: space-between; align-items: flex-start;">
             <div class="actions" style="flex: 1;">
-              <a class="btn" href="/detail/{{.ID}}?requestId={{$.RequestID}}">Подробнее</a>
+              <a class="btn" href="/detail/{{.ID}}/{{$.RequestID}}">Подробнее</a>
               <form method="POST" action="/add" style="display:inline-block;">
                 <input type="hidden" name="requestId" value="{{$.RequestID}}" />
                 <input type="hidden" name="serviceId" value="{{.ID}}" />

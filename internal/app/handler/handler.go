@@ -22,11 +22,13 @@ type Service struct {
 	Description string   `json:"description"`
 	ImageURL    string   `json:"imageUrl"`
 	Props       []string `json:"props"`
+	Comment     string   `json:"comment"`
 }
 
 type CartItem struct {
-	ServiceID int `json:"serviceId"`
-	Quantity  int `json:"quantity"`
+	ServiceID int    `json:"serviceId"`
+	Quantity  int    `json:"quantity"`
+	Comment   string `json:"comment"`
 }
 
 type Result struct {
@@ -95,7 +97,17 @@ func buildProps(dbSvc repository.DBService) []string {
 func (s *Server) HandleCatalog(w http.ResponseWriter, r *http.Request) {
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
 	thickness := strings.TrimSpace(r.URL.Query().Get("thickness"))
+
+	// Проверяем, есть ли ID в пути (например, /56)
+	path := strings.TrimPrefix(r.URL.Path, "/")
 	reqID := r.URL.Query().Get("requestId")
+	if reqID == "" && path != "" {
+		// Если ID в пути, извлекаем последнюю часть (например, из "1/57" получаем "57")
+		pathParts := strings.Split(path, "/")
+		if len(pathParts) > 0 {
+			reqID = pathParts[len(pathParts)-1]
+		}
+	}
 	if reqID == "" {
 		reqID = "1"
 	}
@@ -134,21 +146,44 @@ func (s *Server) HandleCalc(w http.ResponseWriter, r *http.Request) {
 	}
 	var items []CartItem
 	var cartServices []Service
+	var results []Result
 	if s.db != nil {
-		var rs []repository.RequestService
-		_ = s.db.Preload("Service").Where("request_id = ?", reqID).Find(&rs).Error
-		for _, it := range rs {
-			items = append(items, CartItem{ServiceID: it.ServiceID, Quantity: it.Quantity})
-			props := buildProps(it.Service)
-			imageURL := it.Service.ImageURL
-			if !strings.HasPrefix(imageURL, "http") {
-				if strings.HasPrefix(imageURL, "/images/") {
-					imageURL = "http://localhost:9000" + imageURL
-				} else {
-					imageURL = s.assetsBase + imageURL
+		// Проверяем статус заявки - если rejected, то корзина пустая
+		var request repository.Request
+		if err := s.db.Where("id = ?", reqID).First(&request).Error; err == nil {
+			if request.Status == "rejected" {
+				// Заявка отклонена, корзина пустая
+				items = []CartItem{}
+				cartServices = []Service{}
+			} else {
+				// Заявка активна, загружаем товары
+				var rs []repository.RequestService
+				_ = s.db.Preload("Service").Where("request_id = ?", reqID).Find(&rs).Error
+				for _, it := range rs {
+					items = append(items, CartItem{ServiceID: it.ServiceID, Quantity: it.Quantity})
+					props := buildProps(it.Service)
+					imageURL := it.Service.ImageURL
+					if !strings.HasPrefix(imageURL, "http") {
+						if strings.HasPrefix(imageURL, "/images/") {
+							imageURL = "http://localhost:9000" + imageURL
+						} else {
+							imageURL = s.assetsBase + imageURL
+						}
+					}
+					service := Service{ID: it.Service.ID, Name: it.Service.Name, Description: it.Service.Description, ImageURL: imageURL, Props: props, Comment: it.Comment}
+					cartServices = append(cartServices, service)
+
+					// Если есть сохраненные результаты, добавляем их
+					if it.ResultFreq != nil && it.ResultPercent != nil {
+						results = append(results, Result{
+							ServiceID:   it.ServiceID,
+							ServiceName: it.Service.Name,
+							NaturalHz:   *it.ResultFreq,
+							Isolation:   *it.ResultPercent,
+						})
+					}
 				}
 			}
-			cartServices = append(cartServices, Service{ID: it.Service.ID, Name: it.Service.Name, Description: it.Service.Description, ImageURL: imageURL, Props: props})
 		}
 	} else {
 		s.store.mu.RLock()
@@ -156,17 +191,77 @@ func (s *Server) HandleCalc(w http.ResponseWriter, r *http.Request) {
 		s.store.mu.RUnlock()
 		for _, it := range items {
 			if sv, ok := s.findService(it.ServiceID); ok {
+				sv.Comment = it.Comment
 				cartServices = append(cartServices, sv)
 			}
 		}
 	}
-	var results []Result
 	if r.Method == http.MethodPost {
+		// Обрабатываем комментарии для товаров (всегда при POST)
+		if s.db != nil {
+			for _, service := range cartServices {
+				commentKey := fmt.Sprintf("comment_%d", service.ID)
+				comment := r.FormValue(commentKey)
+				// Обновляем комментарий в базе данных (даже если пустой)
+				_ = s.db.Exec("UPDATE request_services SET comment = ? WHERE request_id = ? AND service_id = ?",
+					comment, reqID, service.ID).Error
+			}
+
+			// Перезагружаем данные из базы с обновленными комментариями
+			var rs []repository.RequestService
+			_ = s.db.Preload("Service").Where("request_id = ?", reqID).Find(&rs).Error
+			cartServices = []Service{} // Очищаем старые данные
+			items = []CartItem{}       // Очищаем старые данные
+			for _, it := range rs {
+				items = append(items, CartItem{ServiceID: it.ServiceID, Quantity: it.Quantity})
+				props := buildProps(it.Service)
+				imageURL := it.Service.ImageURL
+				if !strings.HasPrefix(imageURL, "http") {
+					if strings.HasPrefix(imageURL, "/images/") {
+						imageURL = "http://localhost:9000" + imageURL
+					} else {
+						imageURL = s.assetsBase + imageURL
+					}
+				}
+				service := Service{ID: it.Service.ID, Name: it.Service.Name, Description: it.Service.Description, ImageURL: imageURL, Props: props, Comment: it.Comment}
+				cartServices = append(cartServices, service)
+			}
+		} else {
+			// Обрабатываем комментарии для in-memory store
+			s.store.mu.Lock()
+			for i := range s.store.carts[reqID] {
+				commentKey := fmt.Sprintf("comment_%d", s.store.carts[reqID][i].ServiceID)
+				comment := r.FormValue(commentKey)
+				s.store.carts[reqID][i].Comment = comment
+			}
+			s.store.mu.Unlock()
+
+			// Обновляем cartServices с новыми комментариями
+			cartServices = []Service{}
+			for _, it := range items {
+				if sv, ok := s.findService(it.ServiceID); ok {
+					sv.Comment = it.Comment
+					cartServices = append(cartServices, sv)
+				}
+			}
+		}
+
+		// Проверяем, есть ли данные для расчета (масса и частота)
 		mass, _ := strconv.ParseFloat(r.FormValue("mass"), 64)
 		freq, _ := strconv.ParseFloat(r.FormValue("frequency"), 64)
-		results = s.calculateResults(items, mass, freq)
-		if s.db != nil {
-			_ = s.db.Exec("UPDATE requests SET status = 'completed' WHERE id = ?", reqID).Error
+
+		if mass > 0 && freq > 0 {
+			// Если есть данные для расчета, выполняем расчет
+			results = s.calculateResults(items, mass, freq)
+			if s.db != nil {
+				_ = s.db.Exec("UPDATE requests SET status = 'completed' WHERE id = ?", reqID).Error
+
+				// Сохраняем результаты расчета в базу данных
+				for _, result := range results {
+					_ = s.db.Exec("UPDATE request_services SET result_freq = ?, result_percent = ? WHERE request_id = ? AND service_id = ?",
+						result.NaturalHz, result.Isolation, reqID, result.ServiceID).Error
+				}
+			}
 		}
 	}
 	data := struct {
@@ -193,16 +288,28 @@ func (s *Server) HandleCalc(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) HandleDetail(w http.ResponseWriter, r *http.Request) {
-	idStr := strings.TrimPrefix(r.URL.Path, "/detail/")
+	// Обрабатываем новый формат URL: /detail/{id}/{requestId}
+	path := strings.TrimPrefix(r.URL.Path, "/detail/")
+	parts := strings.Split(path, "/")
+
+	var idStr, reqID string
+	if len(parts) >= 2 {
+		idStr = parts[0]
+		reqID = parts[1]
+	} else if len(parts) == 1 {
+		idStr = parts[0]
+		reqID = r.URL.Query().Get("requestId")
+	}
+
+	if reqID == "" {
+		reqID = "1"
+	}
+
 	id, _ := strconv.Atoi(idStr)
 	svc, ok := s.findService(id)
 	if !ok {
 		http.NotFound(w, r)
 		return
-	}
-	reqID := r.URL.Query().Get("requestId")
-	if reqID == "" {
-		reqID = "1"
 	}
 	data := struct {
 		Title      string
@@ -381,6 +488,13 @@ func (s *Server) filterServices(q, thickness string) []Service {
 
 func (s *Server) cartCount(requestID string) int {
 	if s.db != nil {
+		// Проверяем статус заявки - если rejected, то корзина пустая
+		var request repository.Request
+		if err := s.db.Where("id = ?", requestID).First(&request).Error; err == nil {
+			if request.Status == "rejected" {
+				return 0
+			}
+		}
 		var sum int64
 		_ = s.db.Model(&repository.RequestService{}).Where("request_id = ?", requestID).Select("COALESCE(SUM(quantity),0)").Scan(&sum).Error
 		return int(sum)
@@ -419,12 +533,38 @@ func (s *Server) HandleAdd(w http.ResponseWriter, r *http.Request) {
 	}
 	requestID := r.FormValue("requestId")
 	serviceID, _ := strconv.Atoi(r.FormValue("serviceId"))
+
+	// Если requestID пустой, попробуем извлечь из referer URL
+	if requestID == "" {
+		referer := r.Referer()
+		if referer != "" {
+			// Извлекаем ID из referer URL (например, из http://localhost:8080/57)
+			if strings.Contains(referer, "://") {
+				parts := strings.Split(referer, "://")
+				if len(parts) > 1 {
+					pathParts := strings.Split(parts[1], "/")
+					if len(pathParts) > 1 && pathParts[1] != "" {
+						// Извлекаем последнюю часть пути (например, из "1/57" получаем "57")
+						lastPart := pathParts[len(pathParts)-1]
+						if lastPart != "" {
+							requestID = lastPart
+						}
+					}
+				}
+			}
+		}
+	}
+
+	if requestID == "" {
+		requestID = "1"
+	}
+
 	log.Printf("/add POST: requestId=%q serviceId=%d", requestID, serviceID)
 	if s.db != nil {
 		userID := 1
 		var req repository.Request
 		err := s.db.Where("id = ? AND status <> 'rejected'", requestID).First(&req).Error
-		if err == gorm.ErrRecordNotFound || requestID == "" {
+		if err == gorm.ErrRecordNotFound {
 			if err := s.db.Where("creator_id = ? AND status = 'pending'", userID).First(&req).Error; err == gorm.ErrRecordNotFound {
 				if err := s.db.Model(&repository.Request{}).Create(map[string]any{"creator_id": userID, "status": "pending"}).Error; err != nil {
 					log.Printf("create draft request error: %v", err)
@@ -434,6 +574,9 @@ func (s *Server) HandleAdd(w http.ResponseWriter, r *http.Request) {
 				_ = s.db.Where("creator_id = ?", userID).Order("id desc").First(&req).Error
 			}
 			requestID = strconv.Itoa(req.ID)
+		} else if err == nil {
+			// Заявка найдена, используем её ID
+			requestID = strconv.Itoa(req.ID)
 		}
 		if err := s.db.Exec("INSERT INTO request_services (request_id, service_id, quantity) VALUES (?, ?, 1) ON CONFLICT (request_id, service_id) DO UPDATE SET quantity = request_services.quantity + 1", requestID, serviceID).Error; err != nil {
 			log.Printf("add to request_services error: %v", err)
@@ -442,9 +585,6 @@ func (s *Server) HandleAdd(w http.ResponseWriter, r *http.Request) {
 		}
 		_ = s.db.Exec("UPDATE requests SET status = 'pending' WHERE id = ? AND status <> 'pending'", requestID).Error
 	} else {
-		if requestID == "" {
-			requestID = "1"
-		}
 		s.store.mu.Lock()
 		items := s.store.carts[requestID]
 		exists := false
@@ -464,9 +604,24 @@ func (s *Server) HandleAdd(w http.ResponseWriter, r *http.Request) {
 	}
 	ref := r.Referer()
 	if ref == "" {
-		ref = "/?requestId=" + requestID
+		ref = "/" + requestID
 	} else {
-		ref = setURLParam(ref, "requestId", requestID)
+		// Обновляем URL в referer для нового формата
+		if strings.Contains(ref, "?requestId=") {
+			ref = strings.Split(ref, "?")[0] + "/" + requestID
+		} else {
+			// Заменяем ID в URL на актуальный requestID
+			if strings.Contains(ref, "://") {
+				parts := strings.Split(ref, "://")
+				if len(parts) > 1 {
+					pathParts := strings.Split(parts[1], "/")
+					if len(pathParts) > 1 {
+						pathParts[1] = requestID
+						ref = parts[0] + "://" + strings.Join(pathParts, "/")
+					}
+				}
+			}
+		}
 	}
 	log.Printf("/add redirect -> %s", ref)
 	http.Redirect(w, r, ref, http.StatusSeeOther)
@@ -480,7 +635,7 @@ func (s *Server) HandleClear(w http.ResponseWriter, r *http.Request) {
 	requestID := r.FormValue("requestId")
 	if s.db != nil {
 		_ = s.db.Exec("UPDATE requests SET status = 'rejected' WHERE id = ?", requestID).Error
-		_ = s.db.Exec("DELETE FROM request_services WHERE request_id = ?", requestID).Error
+		//_ = s.db.Exec("DELETE FROM request_services WHERE request_id = ?", requestID).Error
 	} else {
 		if requestID == "" {
 			requestID = "1"
@@ -489,7 +644,162 @@ func (s *Server) HandleClear(w http.ResponseWriter, r *http.Request) {
 		s.store.carts[requestID] = []CartItem{}
 		s.store.mu.Unlock()
 	}
-	http.Redirect(w, r, "/calc?requestId="+requestID, http.StatusSeeOther)
+	http.Redirect(w, r, "/order/"+requestID, http.StatusSeeOther)
+}
+
+func (s *Server) HandleOrder(w http.ResponseWriter, r *http.Request) {
+	// Извлекаем ID заказа из URL
+	path := strings.TrimPrefix(r.URL.Path, "/order/")
+	reqID := path
+	if reqID == "" {
+		reqID = "1"
+	}
+
+	// Используем ту же логику, что и в HandleCalc
+	var items []CartItem
+	var cartServices []Service
+	var results []Result
+	if s.db != nil {
+		// Проверяем статус заявки - если rejected, то корзина пустая
+		var request repository.Request
+		if err := s.db.Where("id = ?", reqID).First(&request).Error; err == nil {
+			if request.Status == "rejected" {
+				// Заявка отклонена, корзина пустая
+				items = []CartItem{}
+				cartServices = []Service{}
+			} else {
+				// Заявка активна, загружаем товары
+				var rs []repository.RequestService
+				_ = s.db.Preload("Service").Where("request_id = ?", reqID).Find(&rs).Error
+				for _, it := range rs {
+					items = append(items, CartItem{ServiceID: it.ServiceID, Quantity: it.Quantity})
+					props := buildProps(it.Service)
+					imageURL := it.Service.ImageURL
+					if !strings.HasPrefix(imageURL, "http") {
+						if strings.HasPrefix(imageURL, "/images/") {
+							imageURL = "http://localhost:9000" + imageURL
+						} else {
+							imageURL = s.assetsBase + imageURL
+						}
+					}
+					service := Service{ID: it.Service.ID, Name: it.Service.Name, Description: it.Service.Description, ImageURL: imageURL, Props: props, Comment: it.Comment}
+					cartServices = append(cartServices, service)
+
+					// Если есть сохраненные результаты, добавляем их
+					if it.ResultFreq != nil && it.ResultPercent != nil {
+						results = append(results, Result{
+							ServiceID:   it.ServiceID,
+							ServiceName: it.Service.Name,
+							NaturalHz:   *it.ResultFreq,
+							Isolation:   *it.ResultPercent,
+						})
+					}
+				}
+			}
+		}
+	} else {
+		s.store.mu.RLock()
+		items = append([]CartItem(nil), s.store.carts[reqID]...)
+		s.store.mu.RUnlock()
+		for _, it := range items {
+			if sv, ok := s.findService(it.ServiceID); ok {
+				sv.Comment = it.Comment
+				cartServices = append(cartServices, sv)
+			}
+		}
+	}
+
+	if r.Method == http.MethodPost {
+		// Обрабатываем комментарии для товаров (всегда при POST)
+		if s.db != nil {
+			for _, service := range cartServices {
+				commentKey := fmt.Sprintf("comment_%d", service.ID)
+				comment := r.FormValue(commentKey)
+				// Обновляем комментарий в базе данных (даже если пустой)
+				_ = s.db.Exec("UPDATE request_services SET comment = ? WHERE request_id = ? AND service_id = ?",
+					comment, reqID, service.ID).Error
+			}
+
+			// Перезагружаем данные из базы с обновленными комментариями
+			var rs []repository.RequestService
+			_ = s.db.Preload("Service").Where("request_id = ?", reqID).Find(&rs).Error
+			cartServices = []Service{} // Очищаем старые данные
+			items = []CartItem{}       // Очищаем старые данные
+			for _, it := range rs {
+				items = append(items, CartItem{ServiceID: it.ServiceID, Quantity: it.Quantity})
+				props := buildProps(it.Service)
+				imageURL := it.Service.ImageURL
+				if !strings.HasPrefix(imageURL, "http") {
+					if strings.HasPrefix(imageURL, "/images/") {
+						imageURL = "http://localhost:9000" + imageURL
+					} else {
+						imageURL = s.assetsBase + imageURL
+					}
+				}
+				service := Service{ID: it.Service.ID, Name: it.Service.Name, Description: it.Service.Description, ImageURL: imageURL, Props: props, Comment: it.Comment}
+				cartServices = append(cartServices, service)
+			}
+		} else {
+			// Обрабатываем комментарии для in-memory store
+			s.store.mu.Lock()
+			for i := range s.store.carts[reqID] {
+				commentKey := fmt.Sprintf("comment_%d", s.store.carts[reqID][i].ServiceID)
+				comment := r.FormValue(commentKey)
+				s.store.carts[reqID][i].Comment = comment
+			}
+			s.store.mu.Unlock()
+
+			// Обновляем cartServices с новыми комментариями
+			cartServices = []Service{}
+			for _, it := range items {
+				if sv, ok := s.findService(it.ServiceID); ok {
+					sv.Comment = it.Comment
+					cartServices = append(cartServices, sv)
+				}
+			}
+		}
+
+		// Проверяем, есть ли данные для расчета (масса и частота)
+		mass, _ := strconv.ParseFloat(r.FormValue("mass"), 64)
+		freq, _ := strconv.ParseFloat(r.FormValue("frequency"), 64)
+
+		if mass > 0 && freq > 0 {
+			// Если есть данные для расчета, выполняем расчет
+			results = s.calculateResults(items, mass, freq)
+			if s.db != nil {
+				_ = s.db.Exec("UPDATE requests SET status = 'completed' WHERE id = ?", reqID).Error
+
+				// Сохраняем результаты расчета в базу данных
+				for _, result := range results {
+					_ = s.db.Exec("UPDATE request_services SET result_freq = ?, result_percent = ? WHERE request_id = ? AND service_id = ?",
+						result.NaturalHz, result.Isolation, reqID, result.ServiceID).Error
+				}
+			}
+		}
+	}
+
+	data := struct {
+		Title        string
+		RequestID    string
+		AssetsBase   string
+		CartItems    []CartItem
+		CartServices []Service
+		Results      []Result
+		CartCount    int
+	}{
+		Title:        "Заказ #" + reqID,
+		RequestID:    reqID,
+		AssetsBase:   s.assetsBase,
+		CartItems:    items,
+		CartServices: cartServices,
+		Results:      results,
+		CartCount:    s.cartCount(reqID),
+	}
+	if err := s.tmpl.ExecuteTemplate(w, "calc.html", data); err != nil {
+		log.Printf("template error: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 func round(x float64, p int) float64 { pow := math.Pow(10, float64(p)); return math.Round(x*pow) / pow }

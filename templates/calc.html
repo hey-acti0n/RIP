@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{{.Title}}</title>
+    <title>Расчёт</title>
     <link rel="stylesheet" href="/static/css/styles.css" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -15,7 +15,7 @@
   <body class="gradient-bg">
     <header class="container header">
       <div class="brand">
-        <a href="/?requestId={{.RequestID}}" style="text-decoration: none">
+        <a href="/{{.RequestID}}" style="text-decoration: none">
           <img
             src="{{.AssetsBase}}/logo.png"
             alt="UltraRezina"
@@ -31,7 +31,7 @@
       </div>
     </header>
     <main class="container">
-      <a class="btn" href="/?requestId={{.RequestID}}">Назад</a>
+      <a class="btn" href="/{{.RequestID}}">Назад</a>
       <form method="POST" action="/clear" style="display:inline-block;">
         <input type="hidden" name="requestId" value="{{.RequestID}}" />
         <button
@@ -42,43 +42,40 @@
           Очистить корзину
         </button>
       </form>
-      <section class="panel">
-        <h2>Введите данные для расчёта</h2>
-        <form method="POST" action="/calc" class="calc-form">
-          <input
-            class="input"
-            type="number"
-            step="0.01"
-            name="mass"
-            id="mass"
-            placeholder="Масса оборудования, кг"
-            required
-          />
-          <input
-            class="input"
-            type="number"
-            step="0.01"
-            name="frequency"
-            id="frequency"
-            placeholder="Рабочая частота, Гц"
-            required
-          />
-          <input
-            type="hidden"
-            name="requestId"
-            id="requestId"
-            value="{{.RequestID}}"
-          />
-          <button class="btn primary" type="submit">Оформить заявку</button>
-        </form>
-      </section>
+      <form method="POST" action="/calc">
+        <input type="hidden" name="requestId" value="{{.RequestID}}" />
+        
+        <section class="panel">
+          <h2>Введите данные для расчёта</h2>
+          <div class="calc-form">
+            <input
+              class="input"
+              type="number"
+              step="0.01"
+              name="mass"
+              id="mass"
+              placeholder="Масса оборудования, кг"
+              required
+            />
+            <input
+              class="input"
+              type="number"
+              step="0.01"
+              name="frequency"
+              id="frequency"
+              placeholder="Рабочая частота, Гц"
+              required
+            />
+            <button class="btn primary" type="submit">Оформить заявку</button>
+          </div>
+        </section>
 
-      <h2 class="center">Результат</h2>
-      <section id="results" class="stack">
-        {{if .CartServices}}
-          {{/* Для каждого товара своя плитка результата */}}
-          {{range $i, $svc := .CartServices}}
-          <div class="result-card">
+        <h2 class="center">Результат</h2>
+        <section id="results" class="stack">
+          {{if .CartServices}}
+            {{/* Для каждого товара своя плитка результата */}}
+            {{range $i, $svc := .CartServices}}
+            <div class="result-card">
             <div style="display: flex; gap: 16px; align-items: flex-start;">
               <!-- Изображение товара -->
               <div style="flex-shrink: 0;">
@@ -139,17 +136,38 @@
               </div>
               
               {{if not $.Results}}
-              <div style="text-align: center; padding: 8px; background: #1e2022; border-radius: 6px; border: 1px dashed #3a3d41;">
-                <span style="color: var(--muted); font-size: 12px;">Введите данные выше и нажмите "Оформить заявку" для расчёта</span>
-              </div>
+              
               {{end}}
+              
+              <!-- Поле для комментария -->
+              <div style="margin-top: 16px;">
+                <label style="display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px;">Комментарий к товару</label>
+                <textarea 
+                  name="comment_{{.ID}}" 
+                  placeholder="Введите комментарий к товару..."
+                  style="
+                    width: 100%;
+                    min-height: 60px;
+                    padding: 8px 12px;
+                    border: 1px solid #3a3d41;
+                    border-radius: 8px;
+                    background: #1a1c1e;
+                    color: #fff;
+                    font-family: inherit;
+                    font-size: 14px;
+                    resize: vertical;
+                    box-sizing: border-box;
+                  "
+                >{{.Comment}}</textarea>
+              </div>
             </div>
           </div>
           {{end}}
         {{else}}
           <div class="muted">Добавьте товары для расчета.</div>
         {{end}}
-      </section>
+        </section>
+      </form>
     </main>
   </body>
 </html>

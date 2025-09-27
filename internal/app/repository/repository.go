@@ -43,13 +43,16 @@ type Request struct {
 func (Request) TableName() string { return "requests" }
 
 type RequestService struct {
-	RequestID int       `gorm:"primaryKey;column:request_id" json:"request_id"`
-	ServiceID int       `gorm:"primaryKey;column:service_id" json:"service_id"`
-	Quantity  int       `gorm:"not null;default:1;column:quantity" json:"quantity"`
-	SortOrder int       `gorm:"not null;default:0;column:sort_order" json:"sort_order"`
-	IsMain    bool      `gorm:"not null;default:false;column:is_main" json:"is_main"`
-	CreatedAt time.Time `gorm:"autoCreateTime;column:created_at" json:"created_at"`
-	Service   DBService `gorm:"foreignKey:ServiceID" json:"-"`
+	RequestID     int       `gorm:"primaryKey;column:request_id" json:"request_id"`
+	ServiceID     int       `gorm:"primaryKey;column:service_id" json:"service_id"`
+	Quantity      int       `gorm:"not null;default:1;column:quantity" json:"quantity"`
+	SortOrder     int       `gorm:"not null;default:0;column:sort_order" json:"sort_order"`
+	IsMain        bool      `gorm:"not null;default:false;column:is_main" json:"is_main"`
+	Comment       string    `gorm:"type:text;column:comment" json:"comment"`
+	ResultFreq    *float64  `gorm:"column:result_freq" json:"result_freq,omitempty"`
+	ResultPercent *float64  `gorm:"column:result_percent" json:"result_percent,omitempty"`
+	CreatedAt     time.Time `gorm:"autoCreateTime;column:created_at" json:"created_at"`
+	Service       DBService `gorm:"foreignKey:ServiceID" json:"-"`
 }
 
 func (RequestService) TableName() string { return "request_services" }
