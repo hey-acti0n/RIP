@@ -95,6 +95,35 @@ body {
   padding: 4px 8px;
   font-size: 12px;
 }
+
+.cart-container {
+  position: relative;
+  display: inline-block;
+}
+
+.cart-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  border: 2px solid var(--bg);
+  box-shadow: 0 2px 8px rgba(255, 45, 45, 0.3);
+  min-width: 24px;
+  padding: 0 4px;
+}
+
+.cart-badge:empty::before {
+  content: "0";
+}
 .note.small {
   color: var(--muted);
   margin-top: 8px;
@@ -167,6 +196,31 @@ body {
 .result-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.calc-results {
+  background: #1a1c1e;
+  border-radius: 8px;
+  padding: 16px;
+  margin-top: 12px;
+}
+
+.result-field {
+  background: #2a2c2e;
+  border: 1px solid #3a3d41;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-family: monospace;
+  font-size: 14px;
+  color: var(--text);
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+}
+
+.result-field:empty::before {
+  content: "—";
+  color: var(--muted);
 }
 .muted {
   color: var(--muted);

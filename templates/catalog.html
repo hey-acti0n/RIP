@@ -70,16 +70,18 @@
               style="width: 40px; height: 40px; vertical-align: middle"
             />
           </button>
-          <a
-            class="icon-btn"
-            id="cartLink"
-            href="/calc?requestId={{.RequestID}}"
-            ><img
-              src="{{.AssetsBase}}/cart.png"
-              alt="Корзина"
-              style="width: 40px; height: 40px; vertical-align: middle"
-          /></a>
-          <span class="badge">{{.CartCount}}</span>
+          <div class="cart-container">
+            <a
+              class="icon-btn"
+              id="cartLink"
+              href="/calc?requestId={{.RequestID}}"
+              ><img
+                src="{{.AssetsBase}}/cart.png"
+                alt="Корзина"
+                style="width: 40px; height: 40px; vertical-align: middle"
+            /></a>
+            <span class="cart-badge">{{.CartCount}}</span>
+          </div>
         </form>
       </section>
 

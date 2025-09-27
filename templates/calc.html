@@ -107,19 +107,43 @@
                 </div>
               </div>
             </div>
-            {{/* Если расчёт выполнен — подставим его именно к этой плитке */}}
-            {{- $has := false -}}
-            {{- range $.Results -}}
-              {{- if eq .ServiceName $svc.Name -}}
-                <div class="muted">Результаты расчёта</div>
-                <div>Собственная частота: <b>{{.NaturalHz}} Гц</b></div>
-                <div>Ожидаемая изоляция: <b>{{.Isolation}}%</b></div>
-                {{- $has = true -}}
-              {{- end -}}
-            {{- end -}}
-            {{- if not $has -}}
-              <div class="muted">Заполните форму выше и нажмите "Рассчитать"</div>
-            {{- end -}}
+            <!-- Поля для результатов расчёта -->
+            <div class="calc-results">
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 12px;">
+                <div>
+                  <label style="display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px;">Собственная частота (Гц)</label>
+                  <div class="result-field">
+                    {{range $.Results}}
+                      {{if eq .ServiceName $svc.Name}}
+                        {{printf "%.2f" .NaturalHz}}
+                      {{end}}
+                    {{end}}
+                    {{if not $.Results}}
+                      <span style="color: var(--muted);">—</span>
+                    {{end}}
+                  </div>
+                </div>
+                <div>
+                  <label style="display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px;">Изоляция (%)</label>
+                  <div class="result-field">
+                    {{range $.Results}}
+                      {{if eq .ServiceName $svc.Name}}
+                        {{printf "%.1f" .Isolation}}%
+                      {{end}}
+                    {{end}}
+                    {{if not $.Results}}
+                      <span style="color: var(--muted);">—</span>
+                    {{end}}
+                  </div>
+                </div>
+              </div>
+              
+              {{if not $.Results}}
+              <div style="text-align: center; padding: 8px; background: #1e2022; border-radius: 6px; border: 1px dashed #3a3d41;">
+                <span style="color: var(--muted); font-size: 12px;">Введите данные выше и нажмите "Оформить заявку" для расчёта</span>
+              </div>
+              {{end}}
+            </div>
           </div>
           {{end}}
         {{else}}
