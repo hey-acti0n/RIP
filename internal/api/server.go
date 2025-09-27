@@ -41,7 +41,7 @@ func mustParseTemplates() *template.Template {
 func Start() {
 	tmpl := mustParseTemplates()
 	minioHost := repository.Getenv("MINIO_PUBLIC_ENDPOINT", "http://localhost:9000")
-	assetsBase := fmt.Sprintf("%s/images", minioHost)
+	assetsBase := fmt.Sprintf("%s/images/icons", minioHost)
 
 	srv := handler.NewServer(assetsBase, tmpl)
 

@@ -1,4 +1,3 @@
-version: "3.8" # версия вашего docker-compose
 services:
   # имеджи, которые запустятся по вашему желанию
   db:
@@ -25,7 +24,7 @@ services:
       - "9001:9001"
     environment:
       MINIO_ACCESS_KEY: root
-      MINIO_SECRET_KEY: root
+      MINIO_SECRET_KEY: rootpassword123
       MINIO_CONSOLE_ADDRESS: ":9001"
     volumes:
       - minio-data:/data
