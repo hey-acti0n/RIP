@@ -1,0 +1,419 @@
+{
+	"info": {
+		"_postman_id": "ultrarezina-api-collection",
+		"name": "UltraRezina REST API",
+		"description": "Коллекция запросов для тестирования REST API системы UltraRezina",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Услуги",
+			"item": [
+				{
+					"name": "Получить список услуг",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/services?name=&material=&thickness_min=&thickness_max=&density_min=&density_max=&page=1&limit=10",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "services"],
+							"query": [
+								{"key": "name", "value": "", "description": "Поиск по названию"},
+								{"key": "material", "value": "", "description": "Фильтр по материалу"},
+								{"key": "thickness_min", "value": "", "description": "Минимальная толщина"},
+								{"key": "thickness_max", "value": "", "description": "Максимальная толщина"},
+								{"key": "density_min", "value": "", "description": "Минимальная плотность"},
+								{"key": "density_max", "value": "", "description": "Максимальная плотность"},
+								{"key": "page", "value": "1", "description": "Номер страницы"},
+								{"key": "limit", "value": "10", "description": "Количество записей на странице"}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Получить услугу по ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/services/1",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "services", "1"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Создать новую услугу",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Тестовая резина\",\n  \"description\": \"Описание тестовой резины\",\n  \"density\": 120.5,\n  \"thickness\": 10.0,\n  \"material\": \"EPDM\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/services",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "services"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Обновить услугу",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Обновленная резина\",\n  \"description\": \"Новое описание\",\n  \"density\": 130.0,\n  \"thickness\": 12.0,\n  \"material\": \"NBR\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/services/1",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "services", "1"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Удалить услугу",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/services/1",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "services", "1"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Добавить услугу в корзину",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/services/1/add-to-cart",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "services", "1", "add-to-cart"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Загрузить изображение услуги",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "image",
+									"type": "file",
+									"src": []
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/services/1/image",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "services", "1", "image"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Заявки",
+			"item": [
+				{
+					"name": "Получить информацию о корзине",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/requests/cart-info",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "requests", "cart-info"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Получить список заявок",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/requests?status=&formed_from=&formed_to=&page=1&limit=10",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "requests"],
+							"query": [
+								{"key": "status", "value": "", "description": "Фильтр по статусу"},
+								{"key": "formed_from", "value": "", "description": "Дата формирования от (YYYY-MM-DD)"},
+								{"key": "formed_to", "value": "", "description": "Дата формирования до (YYYY-MM-DD)"},
+								{"key": "page", "value": "1", "description": "Номер страницы"},
+								{"key": "limit", "value": "10", "description": "Количество записей на странице"}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Получить заявку по ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/requests/1",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "requests", "1"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Обновить заявку",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"title\": \"Тестовая заявка\",\n  \"description\": \"Описание тестовой заявки\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/requests/1",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "requests", "1"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Сформировать заявку",
+					"request": {
+						"method": "PUT",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/requests/1/form",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "requests", "1", "form"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Завершить заявку",
+					"request": {
+						"method": "PUT",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/requests/1/status?action=complete",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "requests", "1", "status"],
+							"query": [
+								{"key": "action", "value": "complete", "description": "complete или reject"}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Отклонить заявку",
+					"request": {
+						"method": "PUT",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/requests/1/status?action=reject",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "requests", "1", "status"],
+							"query": [
+								{"key": "action", "value": "reject", "description": "complete или reject"}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Удалить заявку",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/requests/1",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "requests", "1"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Связи Заявка-Услуга",
+			"item": [
+				{
+					"name": "Обновить связь заявка-услуга",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"quantity\": 3,\n  \"sort_order\": 1,\n  \"comment\": \"Обновленный комментарий\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/requests/1/services/1",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "requests", "1", "services", "1"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Удалить услугу из заявки",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/requests/1/services/1",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "requests", "1", "services", "1"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Пользователи",
+			"item": [
+				{
+					"name": "Регистрация пользователя",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"testuser\",\n  \"email\": \"test@example.com\",\n  \"password\": \"password123\",\n  \"full_name\": \"Тестовый Пользователь\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/users/register",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "users", "register"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Аутентификация пользователя",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"testuser\",\n  \"password\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/users/login",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "users", "login"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Получить профиль пользователя",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/users/profile",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "users", "profile"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Обновить профиль пользователя",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"full_name\": \"Обновленное Имя\",\n  \"email\": \"newemail@example.com\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/users/profile",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "users", "profile"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Деавторизация пользователя",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/users/logout",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "users", "logout"]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8080",
+			"description": "Базовый URL API сервера"
+		}
+	]
+}

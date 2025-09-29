@@ -356,6 +356,29 @@ func (s *Server) ApiServices(w http.ResponseWriter, r *http.Request) {
 	repository.WriteJSON(w, map[string]any{"requestId": requestID, "count": len(list), "items": list})
 }
 
+func (s *Server) ApiServiceByID(w http.ResponseWriter, r *http.Request) {
+	// Извлекаем ID из URL
+	path := strings.TrimPrefix(r.URL.Path, "/api/services/")
+	id, err := strconv.Atoi(path)
+	if err != nil {
+		http.Error(w, "Invalid service ID", http.StatusBadRequest)
+		return
+	}
+
+	// Ищем услугу по ID
+	s.store.mu.RLock()
+	defer s.store.mu.RUnlock()
+
+	for _, sv := range s.store.services {
+		if sv.ID == id {
+			repository.WriteJSON(w, sv)
+			return
+		}
+	}
+
+	http.Error(w, "Service not found", http.StatusNotFound)
+}
+
 func (s *Server) ApiAddToCart(w http.ResponseWriter, r *http.Request) {
 	requestID := r.URL.Query().Get("requestId")
 	serviceID, _ := strconv.Atoi(r.URL.Query().Get("serviceId"))

@@ -31,13 +31,17 @@ type DBService struct {
 func (DBService) TableName() string { return "services" }
 
 type Request struct {
-	ID          int        `gorm:"primaryKey;column:id" json:"id"`
-	Status      string     `gorm:"size:50;column:status" json:"status"`
-	CreatedAt   time.Time  `gorm:"autoCreateTime;column:created_at" json:"created_at"`
-	CreatorID   int        `gorm:"column:creator_id" json:"creator_id"`
-	FormedAt    *time.Time `gorm:"column:formed_at" json:"formed_at,omitempty"`
-	CompletedAt *time.Time `gorm:"column:completed_at" json:"completed_at,omitempty"`
-	ModeratorID *int       `gorm:"column:moderator_id" json:"moderator_id,omitempty"`
+	ID           int        `gorm:"primaryKey;column:id" json:"id"`
+	Status       string     `gorm:"size:50;column:status" json:"status"`
+	Title        string     `gorm:"size:255;column:title" json:"title"`
+	Description  string     `gorm:"type:text;column:description" json:"description"`
+	CreatedAt    time.Time  `gorm:"autoCreateTime;column:created_at" json:"created_at"`
+	CreatorID    int        `gorm:"column:creator_id" json:"creator_id"`
+	FormedAt     *time.Time `gorm:"column:formed_at" json:"formed_at,omitempty"`
+	CompletedAt  *time.Time `gorm:"column:completed_at" json:"completed_at,omitempty"`
+	ModeratorID  *int       `gorm:"column:moderator_id" json:"moderator_id,omitempty"`
+	TotalCost    *float64   `gorm:"column:total_cost" json:"total_cost,omitempty"`
+	DeliveryDate *time.Time `gorm:"column:delivery_date" json:"delivery_date,omitempty"`
 }
 
 func (Request) TableName() string { return "requests" }
@@ -56,6 +60,18 @@ type RequestService struct {
 }
 
 func (RequestService) TableName() string { return "request_services" }
+
+type User struct {
+	ID        int       `gorm:"primaryKey;autoIncrement;column:id" json:"id"`
+	Username  string    `gorm:"size:50;uniqueIndex;not null;column:username" json:"username"`
+	Email     string    `gorm:"size:100;uniqueIndex;not null;column:email" json:"email"`
+	Password  string    `gorm:"size:255;not null;column:password" json:"-"`
+	FullName  string    `gorm:"size:100;column:full_name" json:"full_name"`
+	IsActive  bool      `gorm:"column:is_active;default:true" json:"is_active"`
+	CreatedAt time.Time `gorm:"autoCreateTime;column:created_at" json:"created_at"`
+}
+
+func (User) TableName() string { return "users" }
 
 // Getenv helper function
 func Getenv(key, def string) string {
@@ -80,7 +96,7 @@ func InitDB() *gorm.DB {
 	if err != nil {
 		panic(err)
 	}
-	_ = db.AutoMigrate(&DBService{}, &Request{}, &RequestService{})
+	_ = db.AutoMigrate(&DBService{}, &Request{}, &RequestService{}, &User{})
 	return db
 }
 
