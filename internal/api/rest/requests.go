@@ -115,6 +115,33 @@ func (h *RequestHandler) GetRequest(w http.ResponseWriter, r *http.Request) {
 	h.writeJSON(w, http.StatusOK, response)
 }
 
+// GetRequestServices возвращает список услуг в заявке
+func (h *RequestHandler) GetRequestServices(w http.ResponseWriter, r *http.Request) {
+	id, err := h.parseID(r)
+	if err != nil {
+		h.writeError(w, http.StatusBadRequest, "Неверный ID заявки")
+		return
+	}
+
+	request, err := h.service.RequestService.GetRequest(r.Context(), id)
+	if err != nil {
+		if err == service.ErrRequestNotFound {
+			h.writeError(w, http.StatusNotFound, "Заявка не найдена")
+			return
+		}
+		h.writeError(w, http.StatusInternalServerError, "Ошибка получения заявки")
+		return
+	}
+
+	// Конвертируем услуги
+	var requestServiceResponses []models.RequestServiceResponse
+	for _, rs := range request.RequestServices {
+		requestServiceResponses = append(requestServiceResponses, models.ConvertToRequestServiceResponse(rs))
+	}
+
+	h.writeJSON(w, http.StatusOK, requestServiceResponses)
+}
+
 // UpdateRequest обновляет поля заявки
 func (h *RequestHandler) UpdateRequest(w http.ResponseWriter, r *http.Request) {
 	id, err := h.parseID(r)
@@ -175,20 +202,19 @@ func (h *RequestHandler) CompleteRequest(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	var req struct {
-		Action string `json:"action" validate:"required,oneof=complete reject"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.writeError(w, http.StatusBadRequest, "Неверный формат данных")
+	// Получаем action из query параметра (как в Postman коллекции)
+	action := h.parseQueryParam(r, "action")
+	if action == "" {
+		h.writeError(w, http.StatusBadRequest, "Параметр action обязателен")
 		return
 	}
 
-	if req.Action != "complete" && req.Action != "reject" {
+	if action != "complete" && action != "reject" {
 		h.writeError(w, http.StatusBadRequest, "Действие должно быть 'complete' или 'reject'")
 		return
 	}
 
-	err = h.service.RequestService.CompleteRequest(r.Context(), id, req.Action)
+	err = h.service.RequestService.CompleteRequest(r.Context(), id, action)
 	if err != nil {
 		if err == service.ErrRequestNotFound {
 			h.writeError(w, http.StatusNotFound, "Заявка не найдена")
@@ -203,7 +229,7 @@ func (h *RequestHandler) CompleteRequest(w http.ResponseWriter, r *http.Request)
 	}
 
 	message := "Заявка завершена"
-	if req.Action == "reject" {
+	if action == "reject" {
 		message = "Заявка отклонена"
 	}
 

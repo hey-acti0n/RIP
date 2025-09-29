@@ -394,7 +394,7 @@ func (s *RequestService) FormRequest(ctx context.Context, id int) error {
 	userID := s.GetCurrentUserID()
 
 	var request repository.Request
-	if err := s.db.Where("id = ? AND creator_id = ? AND status = ?", id, userID, "draft").First(&request).Error; err != nil {
+	if err := s.db.Where("id = ? AND creator_id = ? AND status = ?", id, userID, "pending").First(&request).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return ErrRequestNotFound
 		}
@@ -409,7 +409,7 @@ func (s *RequestService) FormRequest(ctx context.Context, id int) error {
 	// Обновляем статус и дату формирования
 	now := time.Now()
 	if err := s.db.Model(&request).Updates(map[string]interface{}{
-		"status":    "formed",
+		"status":    "completed",
 		"formed_at": &now,
 	}).Error; err != nil {
 		return err
@@ -423,7 +423,7 @@ func (s *RequestService) CompleteRequest(ctx context.Context, id int, action str
 	moderatorID := s.GetCurrentModeratorID()
 
 	var request repository.Request
-	if err := s.db.Where("id = ? AND status = ?", id, "formed").First(&request).Error; err != nil {
+	if err := s.db.Where("id = ? AND status = ?", id, "completed").First(&request).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return ErrRequestNotFound
 		}
@@ -492,7 +492,7 @@ func (s *RequestService) DeleteRequest(ctx context.Context, id int) error {
 	userID := s.GetCurrentUserID()
 
 	var request repository.Request
-	if err := s.db.Where("id = ? AND creator_id = ? AND status = ?", id, userID, "formed").First(&request).Error; err != nil {
+	if err := s.db.Where("id = ? AND creator_id = ? AND status IN (?)", id, userID, []string{"pending", "completed", "rejected"}).First(&request).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return ErrRequestNotFound
 		}
@@ -500,7 +500,7 @@ func (s *RequestService) DeleteRequest(ctx context.Context, id int) error {
 	}
 
 	// Логическое удаление
-	if err := s.db.Model(&request).Update("status", "deleted").Error; err != nil {
+	if err := s.db.Model(&request).Update("status", "rejected").Error; err != nil {
 		return err
 	}
 

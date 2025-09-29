@@ -1,8 +1,8 @@
 {
 	"info": {
-		"_postman_id": "ultrarezina-api-collection",
-		"name": "UltraRezina REST API",
-		"description": "Коллекция запросов для тестирования REST API системы UltraRezina",
+		"_postman_id": "ultrarezina-api-collection-fixed",
+		"name": "UltraRezina REST API (Fixed)",
+		"description": "Исправленная коллекция запросов для тестирования REST API системы UltraRezina",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"item": [
@@ -185,6 +185,19 @@
 							"raw": "{{base_url}}/api/v1/requests/1",
 							"host": ["{{base_url}}"],
 							"path": ["api", "v1", "requests", "1"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Получить услуги в заявке",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/requests/1/services",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "requests", "1", "services"]
 						}
 					},
 					"response": []

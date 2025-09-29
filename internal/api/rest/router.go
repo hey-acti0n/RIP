@@ -49,6 +49,7 @@ func (r *Router) SetupRoutes() *mux.Router {
 	requests.HandleFunc("/{id}", requestHandler.UpdateRequest).Methods("PUT")
 	requests.HandleFunc("/{id}/form", requestHandler.FormRequest).Methods("PUT")
 	requests.HandleFunc("/{id}/status", requestHandler.CompleteRequest).Methods("PUT")
+	requests.HandleFunc("/{id}/services", requestHandler.GetRequestServices).Methods("GET")
 	requests.HandleFunc("/{id}", requestHandler.DeleteRequest).Methods("DELETE")
 
 	// Домен м-м (заявка-услуга)
