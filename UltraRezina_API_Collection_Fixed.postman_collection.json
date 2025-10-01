@@ -2,7 +2,7 @@
 	"info": {
 		"_postman_id": "ultrarezina-api-collection-fixed",
 		"name": "UltraRezina REST API (Fixed)",
-		"description": "Исправленная коллекция запросов для тестирования REST API системы UltraRezina",
+		"description": "Исправленная коллекция запросов для тестирования REST API системы UltraRezina.\n\n**Новая функциональность:**\n- При завершении заявки (action=complete) API возвращает детальные результаты вычислений для каждого товара в корзине\n- Результаты включают: частоту вибрации, процент эффективности, стоимость единицы и общую стоимость\n- При отклонении заявки (action=reject) возвращается пустой массив результатов вычислений\n\n**Структура ответа при завершении заявки:**\n```json\n{\n  \"request_id\": 83,\n  \"status\": \"completed\",\n  \"total_cost\": 426,\n  \"delivery_date\": \"2025-10-30T16:18:29.032088+03:00\",\n  \"calculation_results\": [\n    {\n      \"service_id\": 2,\n      \"service_name\": \"Полиуретановый демпфер PU-450\",\n      \"quantity\": 1,\n      \"result_freq\": 5.032921210448704,\n      \"result_percent\": 90.85470823690686,\n      \"unit_cost\": 255,\n      \"total_cost\": 255\n    }\n  ],\n  \"message\": \"Заявка завершена\"\n}\n```",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"item": [
@@ -251,7 +251,34 @@
 							]
 						}
 					},
-					"response": []
+					"response": [
+						{
+							"name": "Успешное завершение заявки с результатами вычислений",
+							"originalRequest": {
+								"method": "PUT",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/api/v1/requests/83/status?action=complete",
+									"host": ["{{base_url}}"],
+									"path": ["api", "v1", "requests", "83", "status"],
+									"query": [
+										{"key": "action", "value": "complete"}
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"body": "{\n  \"request_id\": 83,\n  \"status\": \"completed\",\n  \"total_cost\": 426,\n  \"delivery_date\": \"2025-10-30T16:18:29.032088+03:00\",\n  \"calculation_results\": [\n    {\n      \"service_id\": 2,\n      \"service_name\": \"Полиуретановый демпфер PU-450\",\n      \"quantity\": 1,\n      \"result_freq\": 5.032921210448704,\n      \"result_percent\": 90.85470823690686,\n      \"unit_cost\": 255,\n      \"total_cost\": 255\n    },\n    {\n      \"service_id\": 3,\n      \"service_name\": \"Пробковая подложка CorkMat 8mm\",\n      \"quantity\": 1,\n      \"result_freq\": 5.032921210448704,\n      \"result_percent\": 90.85470823690686,\n      \"unit_cost\": 171,\n      \"total_cost\": 171\n    }\n  ],\n  \"message\": \"Заявка завершена\"\n}"
+						}
+					]
 				},
 				{
 					"name": "Отклонить заявку",
@@ -267,7 +294,34 @@
 							]
 						}
 					},
-					"response": []
+					"response": [
+						{
+							"name": "Успешное отклонение заявки",
+							"originalRequest": {
+								"method": "PUT",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/api/v1/requests/84/status?action=reject",
+									"host": ["{{base_url}}"],
+									"path": ["api", "v1", "requests", "84", "status"],
+									"query": [
+										{"key": "action", "value": "reject"}
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"body": "{\n  \"request_id\": 84,\n  \"status\": \"rejected\",\n  \"total_cost\": 0,\n  \"delivery_date\": null,\n  \"calculation_results\": [],\n  \"message\": \"Заявка отклонена\"\n}"
+						}
+					]
 				},
 				{
 					"name": "Удалить заявку",
@@ -281,6 +335,75 @@
 						}
 					},
 					"response": []
+				},
+				{
+					"name": "Полный цикл: Создание и завершение заявки с результатами",
+					"item": [
+						{
+							"name": "1. Добавить услугу в корзину",
+							"request": {
+								"method": "POST",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/api/v1/services/2/add-to-cart",
+									"host": ["{{base_url}}"],
+									"path": ["api", "v1", "services", "2", "add-to-cart"]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "2. Обновить заявку",
+							"request": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"title\": \"Демонстрационная заявка\",\n  \"description\": \"Заявка для демонстрации результатов вычислений\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/v1/requests/{{request_id}}",
+									"host": ["{{base_url}}"],
+									"path": ["api", "v1", "requests", "{{request_id}}"]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "3. Сформировать заявку",
+							"request": {
+								"method": "PUT",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/api/v1/requests/{{request_id}}/form",
+									"host": ["{{base_url}}"],
+									"path": ["api", "v1", "requests", "{{request_id}}", "form"]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "4. Завершить заявку с результатами вычислений",
+							"request": {
+								"method": "PUT",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/api/v1/requests/{{request_id}}/status?action=complete",
+									"host": ["{{base_url}}"],
+									"path": ["api", "v1", "requests", "{{request_id}}", "status"],
+									"query": [
+										{"key": "action", "value": "complete"}
+									]
+								}
+							},
+							"response": []
+						}
+					]
 				}
 			]
 		},
@@ -427,6 +550,11 @@
 			"key": "base_url",
 			"value": "http://localhost:8080",
 			"description": "Базовый URL API сервера"
+		},
+		{
+			"key": "request_id",
+			"value": "1",
+			"description": "ID заявки для тестирования (автоматически обновляется при создании новой заявки)"
 		}
 	]
 }

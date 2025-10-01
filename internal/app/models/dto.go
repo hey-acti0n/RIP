@@ -226,3 +226,24 @@ func ConvertToUserResponse(user repository.User) UserResponse {
 		IsActive: user.IsActive,
 	}
 }
+
+// CalculationResult представляет результат вычислений для товара в корзине
+type CalculationResult struct {
+	ServiceID     int     `json:"service_id"`
+	ServiceName   string  `json:"service_name"`
+	Quantity      int     `json:"quantity"`
+	ResultFreq    float64 `json:"result_freq"`
+	ResultPercent float64 `json:"result_percent"`
+	UnitCost      float64 `json:"unit_cost"`
+	TotalCost     float64 `json:"total_cost"`
+}
+
+// CompleteRequestResponse представляет ответ при завершении заявки
+type CompleteRequestResponse struct {
+	RequestID        int                `json:"request_id"`
+	Status           string             `json:"status"`
+	TotalCost        float64            `json:"total_cost"`
+	DeliveryDate     *time.Time         `json:"delivery_date,omitempty"`
+	CalculationResults []CalculationResult `json:"calculation_results"`
+	Message          string             `json:"message"`
+}

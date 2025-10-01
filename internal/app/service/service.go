@@ -419,15 +419,15 @@ func (s *RequestService) FormRequest(ctx context.Context, id int) error {
 }
 
 // CompleteRequest завершает или отклоняет заявку модератором
-func (s *RequestService) CompleteRequest(ctx context.Context, id int, action string) error {
+func (s *RequestService) CompleteRequest(ctx context.Context, id int, action string) (*models.CompleteRequestResponse, error) {
 	moderatorID := s.GetCurrentModeratorID()
 
 	var request repository.Request
 	if err := s.db.Where("id = ? AND status = ?", id, "completed").First(&request).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ErrRequestNotFound
+			return nil, ErrRequestNotFound
 		}
-		return err
+		return nil, err
 	}
 
 	var newStatus string
@@ -437,7 +437,7 @@ func (s *RequestService) CompleteRequest(ctx context.Context, id int, action str
 	case "reject":
 		newStatus = "rejected"
 	default:
-		return ErrInvalidAction
+		return nil, ErrInvalidAction
 	}
 
 	now := time.Now()
@@ -447,12 +447,14 @@ func (s *RequestService) CompleteRequest(ctx context.Context, id int, action str
 		"moderator_id": moderatorID,
 	}
 
+	var response *models.CompleteRequestResponse
+
 	// При завершении выполняем расчеты
 	if action == "complete" {
 		// Загружаем услуги заявки для расчета
 		var requestServices []repository.RequestService
 		if err := s.db.Preload("Service").Where("request_id = ?", id).Find(&requestServices).Error; err != nil {
-			return err
+			return nil, err
 		}
 
 		// Рассчитываем стоимость заказа
@@ -463,28 +465,67 @@ func (s *RequestService) CompleteRequest(ctx context.Context, id int, action str
 		deliveryDate := now.AddDate(0, 0, 30) // 30 дней
 		updates["delivery_date"] = &deliveryDate
 
-		// Обновляем результаты расчета в м-м таблице
+		// Создаем результаты вычислений
+		var calculationResults []models.CalculationResult
+
+		// Обновляем результаты расчета в м-м таблице и собираем результаты
 		for _, rs := range requestServices {
+			var resultFreq, resultPercent float64
+			var unitCost float64
+
 			if rs.Service.Density != nil && rs.Service.Thickness != nil {
 				// Простая формула расчета (пример)
-				resultFreq := math.Sqrt(1000.0/float64(rs.Quantity)) / (2 * math.Pi)
-				resultPercent := 100.0 * (1 - (resultFreq / (50.0 + resultFreq))) // 50 Hz - частота вибрации
+				resultFreq = math.Sqrt(1000.0/float64(rs.Quantity)) / (2 * math.Pi)
+				resultPercent = 100.0 * (1 - (resultFreq / (50.0 + resultFreq))) // 50 Hz - частота вибрации
 
 				if err := s.db.Model(&rs).Updates(map[string]interface{}{
 					"result_freq":    resultFreq,
 					"result_percent": resultPercent,
 				}).Error; err != nil {
-					return err
+					return nil, err
 				}
 			}
+
+			// Рассчитываем стоимость единицы товара
+			unitCost = s.calculateUnitCost(rs.Service)
+			totalItemCost := unitCost * float64(rs.Quantity)
+
+			calculationResults = append(calculationResults, models.CalculationResult{
+				ServiceID:     rs.ServiceID,
+				ServiceName:   rs.Service.Name,
+				Quantity:      rs.Quantity,
+				ResultFreq:    resultFreq,
+				ResultPercent: resultPercent,
+				UnitCost:      unitCost,
+				TotalCost:     totalItemCost,
+			})
+		}
+
+		response = &models.CompleteRequestResponse{
+			RequestID:          id,
+			Status:             newStatus,
+			TotalCost:          totalCost,
+			DeliveryDate:       &deliveryDate,
+			CalculationResults: calculationResults,
+			Message:            "Заявка завершена",
+		}
+	} else {
+		// Для отклонения заявки
+		response = &models.CompleteRequestResponse{
+			RequestID:          id,
+			Status:             newStatus,
+			TotalCost:          0,
+			DeliveryDate:       nil,
+			CalculationResults: []models.CalculationResult{},
+			Message:            "Заявка отклонена",
 		}
 	}
 
 	if err := s.db.Model(&request).Updates(updates).Error; err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return response, nil
 }
 
 // DeleteRequest удаляет заявку (логическое удаление)
@@ -511,17 +552,23 @@ func (s *RequestService) DeleteRequest(ctx context.Context, id int) error {
 func (s *RequestService) calculateOrderCost(requestServices []repository.RequestService) float64 {
 	totalCost := 0.0
 	for _, rs := range requestServices {
-		// Простая формула расчета стоимости (пример)
-		basePrice := 100.0 // Базовая цена
-		if rs.Service.Density != nil {
-			basePrice += *rs.Service.Density * 0.1
-		}
-		if rs.Service.Thickness != nil {
-			basePrice += *rs.Service.Thickness * 2.0
-		}
-		totalCost += basePrice * float64(rs.Quantity)
+		unitCost := s.calculateUnitCost(rs.Service)
+		totalCost += unitCost * float64(rs.Quantity)
 	}
 	return totalCost
+}
+
+// calculateUnitCost рассчитывает стоимость единицы товара
+func (s *RequestService) calculateUnitCost(service repository.DBService) float64 {
+	// Простая формула расчета стоимости (пример)
+	basePrice := 100.0 // Базовая цена
+	if service.Density != nil {
+		basePrice += *service.Density * 0.1
+	}
+	if service.Thickness != nil {
+		basePrice += *service.Thickness * 2.0
+	}
+	return basePrice
 }
 
 // RequestServiceService содержит методы для работы со связью заявка-услуга

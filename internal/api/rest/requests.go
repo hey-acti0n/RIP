@@ -214,7 +214,7 @@ func (h *RequestHandler) CompleteRequest(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	err = h.service.RequestService.CompleteRequest(r.Context(), id, action)
+	response, err := h.service.RequestService.CompleteRequest(r.Context(), id, action)
 	if err != nil {
 		if err == service.ErrRequestNotFound {
 			h.writeError(w, http.StatusNotFound, "Заявка не найдена")
@@ -228,12 +228,7 @@ func (h *RequestHandler) CompleteRequest(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	message := "Заявка завершена"
-	if action == "reject" {
-		message = "Заявка отклонена"
-	}
-
-	h.writeJSON(w, http.StatusOK, map[string]string{"message": message})
+	h.writeJSON(w, http.StatusOK, response)
 }
 
 // DeleteRequest удаляет заявку
