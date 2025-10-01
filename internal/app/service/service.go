@@ -15,19 +15,19 @@ import (
 
 // Service содержит бизнес-логику приложения
 type Service struct {
-	db                    *gorm.DB
-	ServiceService        *ServiceService
-	RequestService        *RequestService
-	RequestServiceService *RequestServiceService
-	UserService           *UserService
+	db                         *gorm.DB
+	MaterialService            *MaterialService
+	CalculationService         *CalculationService
+	MaterialCalculationService *MaterialCalculationService
+	UserService                *UserService
 }
 
 // NewService создает новый сервис
 func NewService(db *gorm.DB) *Service {
 	svc := &Service{db: db}
-	svc.ServiceService = NewServiceService(svc)
-	svc.RequestService = NewRequestService(svc)
-	svc.RequestServiceService = NewRequestServiceService(svc)
+	svc.MaterialService = NewMaterialService(svc)
+	svc.CalculationService = NewCalculationService(svc)
+	svc.MaterialCalculationService = NewMaterialCalculationService(svc)
 	svc.UserService = NewUserService(svc)
 	return svc
 }
@@ -42,22 +42,22 @@ func (s *Service) GetCurrentModeratorID() int {
 	return 2 // Константа для модератора
 }
 
-// ServiceService содержит методы для работы с услугами
-type ServiceService struct {
+// MaterialService содержит методы для работы с материалами
+type MaterialService struct {
 	*Service
 }
 
-// NewServiceService создает новый сервис услуг
-func NewServiceService(svc *Service) *ServiceService {
-	return &ServiceService{Service: svc}
+// NewMaterialService создает новый сервис материалов
+func NewMaterialService(svc *Service) *MaterialService {
+	return &MaterialService{Service: svc}
 }
 
-// GetServices возвращает список услуг с фильтрацией
-func (s *ServiceService) GetServices(ctx context.Context, filters models.ServiceFilters) ([]repository.DBService, int64, error) {
-	var services []repository.DBService
+// GetMaterials возвращает список материалов с фильтрацией
+func (s *MaterialService) GetMaterials(ctx context.Context, filters models.MaterialFilters) ([]repository.DBMaterial, int64, error) {
+	var materials []repository.DBMaterial
 	var total int64
 
-	query := s.db.Model(&repository.DBService{}).Where("is_active = ?", true)
+	query := s.db.Model(&repository.DBMaterial{}).Where("is_active = ?", true)
 
 	// Применяем фильтры
 	if filters.Name != "" {
@@ -86,28 +86,28 @@ func (s *ServiceService) GetServices(ctx context.Context, filters models.Service
 
 	// Применяем пагинацию и сортировку
 	offset := (filters.Page - 1) * filters.Limit
-	if err := query.Order("id").Offset(offset).Limit(filters.Limit).Find(&services).Error; err != nil {
+	if err := query.Order("id").Offset(offset).Limit(filters.Limit).Find(&materials).Error; err != nil {
 		return nil, 0, err
 	}
 
-	return services, total, nil
+	return materials, total, nil
 }
 
-// GetService возвращает услугу по ID
-func (s *ServiceService) GetService(ctx context.Context, id int) (*repository.DBService, error) {
-	var service repository.DBService
-	if err := s.db.Where("id = ? AND is_active = ?", id, true).First(&service).Error; err != nil {
+// GetMaterial возвращает материал по ID
+func (s *MaterialService) GetMaterial(ctx context.Context, id int) (*repository.DBMaterial, error) {
+	var material repository.DBMaterial
+	if err := s.db.Where("id = ? AND is_active = ?", id, true).First(&material).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrServiceNotFound
+			return nil, ErrMaterialNotFound
 		}
 		return nil, err
 	}
-	return &service, nil
+	return &material, nil
 }
 
-// CreateService создает новую услугу
-func (s *ServiceService) CreateService(ctx context.Context, req models.CreateServiceRequest) (*repository.DBService, error) {
-	service := repository.DBService{
+// CreateMaterial создает новый материал
+func (s *MaterialService) CreateMaterial(ctx context.Context, req models.CreateMaterialRequest) (*repository.DBMaterial, error) {
+	material := repository.DBMaterial{
 		Name:        req.Name,
 		Description: req.Description,
 		IsActive:    true,
@@ -117,19 +117,19 @@ func (s *ServiceService) CreateService(ctx context.Context, req models.CreateSer
 		Material:    req.Material,
 	}
 
-	if err := s.db.Create(&service).Error; err != nil {
+	if err := s.db.Create(&material).Error; err != nil {
 		return nil, err
 	}
 
-	return &service, nil
+	return &material, nil
 }
 
-// UpdateService обновляет услугу
-func (s *ServiceService) UpdateService(ctx context.Context, id int, req models.UpdateServiceRequest) (*repository.DBService, error) {
-	var service repository.DBService
-	if err := s.db.Where("id = ? AND is_active = ?", id, true).First(&service).Error; err != nil {
+// UpdateMaterial обновляет материал
+func (s *MaterialService) UpdateMaterial(ctx context.Context, id int, req models.UpdateMaterialRequest) (*repository.DBMaterial, error) {
+	var material repository.DBMaterial
+	if err := s.db.Where("id = ? AND is_active = ?", id, true).First(&material).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrServiceNotFound
+			return nil, ErrMaterialNotFound
 		}
 		return nil, err
 	}
@@ -155,25 +155,25 @@ func (s *ServiceService) UpdateService(ctx context.Context, id int, req models.U
 		updates["material"] = *req.Material
 	}
 
-	if err := s.db.Model(&service).Updates(updates).Error; err != nil {
+	if err := s.db.Model(&material).Updates(updates).Error; err != nil {
 		return nil, err
 	}
 
-	return &service, nil
+	return &material, nil
 }
 
-// DeleteService удаляет услугу (логическое удаление)
-func (s *ServiceService) DeleteService(ctx context.Context, id int) error {
-	var service repository.DBService
-	if err := s.db.Where("id = ? AND is_active = ?", id, true).First(&service).Error; err != nil {
+// DeleteMaterial удаляет материал (логическое удаление)
+func (s *MaterialService) DeleteMaterial(ctx context.Context, id int) error {
+	var material repository.DBMaterial
+	if err := s.db.Where("id = ? AND is_active = ?", id, true).First(&material).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ErrServiceNotFound
+			return ErrMaterialNotFound
 		}
 		return err
 	}
 
 	// Логическое удаление
-	if err := s.db.Model(&service).Update("is_active", false).Error; err != nil {
+	if err := s.db.Model(&material).Update("is_active", false).Error; err != nil {
 		return err
 	}
 
@@ -182,30 +182,30 @@ func (s *ServiceService) DeleteService(ctx context.Context, id int) error {
 	return nil
 }
 
-// AddServiceToCart добавляет услугу в корзину (создает заявку-черновик)
-func (s *ServiceService) AddServiceToCart(ctx context.Context, serviceID int) (*repository.Request, error) {
+// AddMaterialToCart добавляет материал в корзину (создает расчёт-черновик)
+func (s *MaterialService) AddMaterialToCart(ctx context.Context, materialID int) (*repository.Calculation, error) {
 	userID := s.GetCurrentUserID()
 
-	// Проверяем существование услуги
-	var service repository.DBService
-	if err := s.db.Where("id = ? AND is_active = ?", serviceID, true).First(&service).Error; err != nil {
+	// Проверяем существование материала
+	var material repository.DBMaterial
+	if err := s.db.Where("id = ? AND is_active = ?", materialID, true).First(&material).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrServiceNotFound
+			return nil, ErrMaterialNotFound
 		}
 		return nil, err
 	}
 
-	// Ищем существующую заявку-черновик пользователя
-	var request repository.Request
-	err := s.db.Where("creator_id = ? AND status = ?", userID, "pending").First(&request).Error
+	// Ищем существующий расчёт-черновик пользователя
+	var calculation repository.Calculation
+	err := s.db.Where("creator_id = ? AND status = ?", userID, "pending").First(&calculation).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			// Создаем новую заявку-черновик
-			request = repository.Request{
+			// Создаем новый расчёт-черновик
+			calculation = repository.Calculation{
 				CreatorID: userID,
 				Status:    "pending",
 			}
-			if err := s.db.Create(&request).Error; err != nil {
+			if err := s.db.Create(&calculation).Error; err != nil {
 				return nil, err
 			}
 		} else {
@@ -213,66 +213,66 @@ func (s *ServiceService) AddServiceToCart(ctx context.Context, serviceID int) (*
 		}
 	}
 
-	// Добавляем услугу в заявку
-	requestService := repository.RequestService{
-		RequestID: request.ID,
-		ServiceID: serviceID,
-		Quantity:  1,
+	// Добавляем материал в расчёт
+	materialCalculation := repository.MaterialCalculation{
+		CalculationID: calculation.ID,
+		MaterialID:    materialID,
+		Quantity:      1,
 	}
 
-	// Используем upsert для обновления количества если услуга уже есть
+	// Используем upsert для обновления количества если материал уже есть
 	if err := s.db.Exec(`
-		INSERT INTO request_services (request_id, service_id, quantity, sort_order, is_main, comment, created_at)
+		INSERT INTO material_calculation (calculation_id, material_id, quantity, sort_order, is_main, comment, created_at)
 		VALUES ($1, $2, 1, 0, false, '', NOW())
-		ON CONFLICT (request_id, service_id)
-		DO UPDATE SET quantity = request_services.quantity + 1
-	`, requestService.RequestID, requestService.ServiceID).Error; err != nil {
+		ON CONFLICT (calculation_id, material_id)
+		DO UPDATE SET quantity = material_calculation.quantity + 1
+	`, materialCalculation.CalculationID, materialCalculation.MaterialID).Error; err != nil {
 		return nil, err
 	}
 
-	return &request, nil
+	return &calculation, nil
 }
 
-// RequestService содержит методы для работы с заявками
-type RequestService struct {
+// CalculationService содержит методы для работы с расчётами
+type CalculationService struct {
 	*Service
 }
 
-// NewRequestService создает новый сервис заявок
-func NewRequestService(svc *Service) *RequestService {
-	return &RequestService{Service: svc}
+// NewCalculationService создает новый сервис расчётов
+func NewCalculationService(svc *Service) *CalculationService {
+	return &CalculationService{Service: svc}
 }
 
 // GetCartInfo возвращает информацию о корзине текущего пользователя
-func (s *RequestService) GetCartInfo(ctx context.Context) (*models.CartInfo, error) {
+func (s *CalculationService) GetCartInfo(ctx context.Context) (*models.CartInfo, error) {
 	userID := s.GetCurrentUserID()
 
-	var request repository.Request
-	err := s.db.Where("creator_id = ? AND status = ?", userID, "pending").First(&request).Error
+	var calculation repository.Calculation
+	err := s.db.Where("creator_id = ? AND status = ?", userID, "pending").First(&calculation).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return &models.CartInfo{RequestID: 0, ItemCount: 0}, nil
+			return &models.CartInfo{CalculationID: 0, ItemCount: 0}, nil
 		}
 		return nil, err
 	}
 
 	var count int64
-	if err := s.db.Model(&repository.RequestService{}).Where("request_id = ?", request.ID).Count(&count).Error; err != nil {
+	if err := s.db.Model(&repository.MaterialCalculation{}).Where("calculation_id = ?", calculation.ID).Count(&count).Error; err != nil {
 		return nil, err
 	}
 
 	return &models.CartInfo{
-		RequestID: request.ID,
-		ItemCount: int(count),
+		CalculationID: calculation.ID,
+		ItemCount:     int(count),
 	}, nil
 }
 
-// GetRequests возвращает список заявок с фильтрацией
-func (s *RequestService) GetRequests(ctx context.Context, filters models.RequestFilters) ([]models.RequestWithUsers, int64, error) {
-	var requests []repository.Request
+// GetCalculations возвращает список расчётов с фильтрацией
+func (s *CalculationService) GetCalculations(ctx context.Context, filters models.CalculationFilters) ([]models.CalculationWithUsers, int64, error) {
+	var calculations []repository.Calculation
 	var total int64
 
-	query := s.db.Model(&repository.Request{}).Where("status NOT IN (?)", []string{"deleted", "draft"})
+	query := s.db.Model(&repository.Calculation{}).Where("status NOT IN (?)", []string{"deleted", "draft"})
 
 	// Применяем фильтры
 	if filters.Status != "" {
@@ -292,81 +292,81 @@ func (s *RequestService) GetRequests(ctx context.Context, filters models.Request
 
 	// Применяем пагинацию и сортировку
 	offset := (filters.Page - 1) * filters.Limit
-	if err := query.Order("id DESC").Offset(offset).Limit(filters.Limit).Find(&requests).Error; err != nil {
+	if err := query.Order("id DESC").Offset(offset).Limit(filters.Limit).Find(&calculations).Error; err != nil {
 		return nil, 0, err
 	}
 
 	// Загружаем информацию о пользователях
-	var result []models.RequestWithUsers
-	for _, req := range requests {
-		requestWithUsers := models.RequestWithUsers{
-			Request: req,
+	var result []models.CalculationWithUsers
+	for _, calc := range calculations {
+		calculationWithUsers := models.CalculationWithUsers{
+			Calculation: calc,
 		}
 
 		// Загружаем создателя
 		var creator repository.User
-		if err := s.db.Where("id = ?", req.CreatorID).First(&creator).Error; err == nil {
-			requestWithUsers.CreatorLogin = creator.Username
+		if err := s.db.Where("id = ?", calc.CreatorID).First(&creator).Error; err == nil {
+			calculationWithUsers.CreatorLogin = creator.Username
 		}
 
 		// Загружаем модератора если есть
-		if req.ModeratorID != nil {
+		if calc.ModeratorID != nil {
 			var moderator repository.User
-			if err := s.db.Where("id = ?", *req.ModeratorID).First(&moderator).Error; err == nil {
-				requestWithUsers.ModeratorLogin = &moderator.Username
+			if err := s.db.Where("id = ?", *calc.ModeratorID).First(&moderator).Error; err == nil {
+				calculationWithUsers.ModeratorLogin = &moderator.Username
 			}
 		}
 
-		result = append(result, requestWithUsers)
+		result = append(result, calculationWithUsers)
 	}
 
 	return result, total, nil
 }
 
-// GetRequest возвращает заявку с услугами
-func (s *RequestService) GetRequest(ctx context.Context, id int) (*models.RequestWithServices, error) {
-	var request repository.Request
-	if err := s.db.Where("id = ? AND status NOT IN (?)", id, []string{"deleted", "draft"}).First(&request).Error; err != nil {
+// GetCalculation возвращает расчёт с материалами
+func (s *CalculationService) GetCalculation(ctx context.Context, id int) (*models.CalculationWithMaterials, error) {
+	var calculation repository.Calculation
+	if err := s.db.Where("id = ? AND status NOT IN (?)", id, []string{"deleted", "draft"}).First(&calculation).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrRequestNotFound
+			return nil, ErrCalculationNotFound
 		}
 		return nil, err
 	}
 
-	// Загружаем услуги заявки
-	var requestServices []repository.RequestService
-	if err := s.db.Preload("Service").Where("request_id = ?", id).Order("sort_order, service_id").Find(&requestServices).Error; err != nil {
+	// Загружаем материалы расчёта
+	var materialCalculations []repository.MaterialCalculation
+	if err := s.db.Preload("Material").Where("calculation_id = ?", id).Order("sort_order, material_id").Find(&materialCalculations).Error; err != nil {
 		return nil, err
 	}
 
 	// Загружаем информацию о пользователях
 	var creator repository.User
-	if err := s.db.Where("id = ?", request.CreatorID).First(&creator).Error; err == nil {
+	if err := s.db.Where("id = ?", calculation.CreatorID).First(&creator).Error; err == nil {
 		// creator login уже загружен
 	}
 
 	var moderatorLogin *string
-	if request.ModeratorID != nil {
+	if calculation.ModeratorID != nil {
 		var moderator repository.User
-		if err := s.db.Where("id = ?", *request.ModeratorID).First(&moderator).Error; err == nil {
+		if err := s.db.Where("id = ?", *calculation.ModeratorID).First(&moderator).Error; err == nil {
 			moderatorLogin = &moderator.Username
 		}
 	}
 
-	return &models.RequestWithServices{
-		Request:         request,
-		CreatorLogin:    creator.Username,
-		ModeratorLogin:  moderatorLogin,
-		RequestServices: requestServices,
+	return &models.CalculationWithMaterials{
+		Calculation:          calculation,
+		CreatorLogin:         creator.Username,
+		ModeratorLogin:       moderatorLogin,
+		MaterialCalculations: materialCalculations,
 	}, nil
 }
 
-// UpdateRequest обновляет поля заявки
-func (s *RequestService) UpdateRequest(ctx context.Context, id int, req models.UpdateRequestRequest) error {
-	var request repository.Request
-	if err := s.db.Where("id = ? AND status NOT IN (?)", id, []string{"deleted", "draft"}).First(&request).Error; err != nil {
+// UpdateCalculation обновляет поля расчёта
+func (s *CalculationService) UpdateCalculation(ctx context.Context, id int, req models.UpdateCalculationRequest) error {
+	var calculation repository.Calculation
+	if err := s.db.Where("id = ? AND status NOT IN (?)", id, []string{"deleted", "draft"}).First(&calculation).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ErrRequestNotFound
+			return ErrCalculationNotFound
 		}
 		return err
 	}
@@ -381,7 +381,7 @@ func (s *RequestService) UpdateRequest(ctx context.Context, id int, req models.U
 	}
 
 	if len(updates) > 0 {
-		if err := s.db.Model(&request).Updates(updates).Error; err != nil {
+		if err := s.db.Model(&calculation).Updates(updates).Error; err != nil {
 			return err
 		}
 	}
@@ -389,26 +389,26 @@ func (s *RequestService) UpdateRequest(ctx context.Context, id int, req models.U
 	return nil
 }
 
-// FormRequest формирует заявку (переводит из черновика в сформированную)
-func (s *RequestService) FormRequest(ctx context.Context, id int) error {
+// FormCalculation формирует расчёт (переводит из черновика в сформированный)
+func (s *CalculationService) FormCalculation(ctx context.Context, id int) error {
 	userID := s.GetCurrentUserID()
 
-	var request repository.Request
-	if err := s.db.Where("id = ? AND creator_id = ? AND status = ?", id, userID, "pending").First(&request).Error; err != nil {
+	var calculation repository.Calculation
+	if err := s.db.Where("id = ? AND creator_id = ? AND status = ?", id, userID, "pending").First(&calculation).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ErrRequestNotFound
+			return ErrCalculationNotFound
 		}
 		return err
 	}
 
 	// Проверяем обязательные поля
-	if request.Title == "" {
-		return ErrRequestMissingRequiredFields
+	if calculation.Title == "" {
+		return ErrCalculationMissingRequiredFields
 	}
 
 	// Обновляем статус и дату формирования
 	now := time.Now()
-	if err := s.db.Model(&request).Updates(map[string]interface{}{
+	if err := s.db.Model(&calculation).Updates(map[string]interface{}{
 		"status":    "completed",
 		"formed_at": &now,
 	}).Error; err != nil {
@@ -418,14 +418,14 @@ func (s *RequestService) FormRequest(ctx context.Context, id int) error {
 	return nil
 }
 
-// CompleteRequest завершает или отклоняет заявку модератором
-func (s *RequestService) CompleteRequest(ctx context.Context, id int, action string) (*models.CompleteRequestResponse, error) {
+// CompleteCalculation завершает или отклоняет расчёт модератором
+func (s *CalculationService) CompleteCalculation(ctx context.Context, id int, action string) (*models.CompleteCalculationResponse, error) {
 	moderatorID := s.GetCurrentModeratorID()
 
-	var request repository.Request
-	if err := s.db.Where("id = ? AND status = ?", id, "completed").First(&request).Error; err != nil {
+	var calculation repository.Calculation
+	if err := s.db.Where("id = ? AND status = ?", id, "completed").First(&calculation).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrRequestNotFound
+			return nil, ErrCalculationNotFound
 		}
 		return nil, err
 	}
@@ -447,18 +447,18 @@ func (s *RequestService) CompleteRequest(ctx context.Context, id int, action str
 		"moderator_id": moderatorID,
 	}
 
-	var response *models.CompleteRequestResponse
+	var response *models.CompleteCalculationResponse
 
 	// При завершении выполняем расчеты
 	if action == "complete" {
-		// Загружаем услуги заявки для расчета
-		var requestServices []repository.RequestService
-		if err := s.db.Preload("Service").Where("request_id = ?", id).Find(&requestServices).Error; err != nil {
+		// Загружаем материалы расчёта для расчета
+		var materialCalculations []repository.MaterialCalculation
+		if err := s.db.Preload("Material").Where("calculation_id = ?", id).Find(&materialCalculations).Error; err != nil {
 			return nil, err
 		}
 
 		// Рассчитываем стоимость заказа
-		totalCost := s.calculateOrderCost(requestServices)
+		totalCost := s.calculateOrderCost(materialCalculations)
 		updates["total_cost"] = totalCost
 
 		// Рассчитываем дату доставки (в течение месяца)
@@ -469,16 +469,16 @@ func (s *RequestService) CompleteRequest(ctx context.Context, id int, action str
 		var calculationResults []models.CalculationResult
 
 		// Обновляем результаты расчета в м-м таблице и собираем результаты
-		for _, rs := range requestServices {
+		for _, mc := range materialCalculations {
 			var resultFreq, resultPercent float64
 			var unitCost float64
 
-			if rs.Service.Density != nil && rs.Service.Thickness != nil {
+			if mc.Material.Density != nil && mc.Material.Thickness != nil {
 				// Простая формула расчета (пример)
-				resultFreq = math.Sqrt(1000.0/float64(rs.Quantity)) / (2 * math.Pi)
+				resultFreq = math.Sqrt(1000.0/float64(mc.Quantity)) / (2 * math.Pi)
 				resultPercent = 100.0 * (1 - (resultFreq / (50.0 + resultFreq))) // 50 Hz - частота вибрации
 
-				if err := s.db.Model(&rs).Updates(map[string]interface{}{
+				if err := s.db.Model(&mc).Updates(map[string]interface{}{
 					"result_freq":    resultFreq,
 					"result_percent": resultPercent,
 				}).Error; err != nil {
@@ -487,13 +487,13 @@ func (s *RequestService) CompleteRequest(ctx context.Context, id int, action str
 			}
 
 			// Рассчитываем стоимость единицы товара
-			unitCost = s.calculateUnitCost(rs.Service)
-			totalItemCost := unitCost * float64(rs.Quantity)
+			unitCost = s.calculateUnitCost(mc.Material)
+			totalItemCost := unitCost * float64(mc.Quantity)
 
 			calculationResults = append(calculationResults, models.CalculationResult{
-				ServiceID:     rs.ServiceID,
-				ServiceName:   rs.Service.Name,
-				Quantity:      rs.Quantity,
+				MaterialID:    mc.MaterialID,
+				MaterialName:  mc.Material.Name,
+				Quantity:      mc.Quantity,
 				ResultFreq:    resultFreq,
 				ResultPercent: resultPercent,
 				UnitCost:      unitCost,
@@ -501,47 +501,47 @@ func (s *RequestService) CompleteRequest(ctx context.Context, id int, action str
 			})
 		}
 
-		response = &models.CompleteRequestResponse{
-			RequestID:          id,
+		response = &models.CompleteCalculationResponse{
+			CalculationID:      id,
 			Status:             newStatus,
 			TotalCost:          totalCost,
 			DeliveryDate:       &deliveryDate,
 			CalculationResults: calculationResults,
-			Message:            "Заявка завершена",
+			Message:            "Расчёт завершён",
 		}
 	} else {
-		// Для отклонения заявки
-		response = &models.CompleteRequestResponse{
-			RequestID:          id,
+		// Для отклонения расчёта
+		response = &models.CompleteCalculationResponse{
+			CalculationID:      id,
 			Status:             newStatus,
 			TotalCost:          0,
 			DeliveryDate:       nil,
 			CalculationResults: []models.CalculationResult{},
-			Message:            "Заявка отклонена",
+			Message:            "Расчёт отклонён",
 		}
 	}
 
-	if err := s.db.Model(&request).Updates(updates).Error; err != nil {
+	if err := s.db.Model(&calculation).Updates(updates).Error; err != nil {
 		return nil, err
 	}
 
 	return response, nil
 }
 
-// DeleteRequest удаляет заявку (логическое удаление)
-func (s *RequestService) DeleteRequest(ctx context.Context, id int) error {
+// DeleteCalculation удаляет расчёт (логическое удаление)
+func (s *CalculationService) DeleteCalculation(ctx context.Context, id int) error {
 	userID := s.GetCurrentUserID()
 
-	var request repository.Request
-	if err := s.db.Where("id = ? AND creator_id = ? AND status IN (?)", id, userID, []string{"pending", "completed", "rejected"}).First(&request).Error; err != nil {
+	var calculation repository.Calculation
+	if err := s.db.Where("id = ? AND creator_id = ? AND status IN (?)", id, userID, []string{"pending", "completed", "rejected"}).First(&calculation).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ErrRequestNotFound
+			return ErrCalculationNotFound
 		}
 		return err
 	}
 
 	// Логическое удаление
-	if err := s.db.Model(&request).Update("status", "rejected").Error; err != nil {
+	if err := s.db.Model(&calculation).Update("status", "rejected").Error; err != nil {
 		return err
 	}
 
@@ -549,68 +549,68 @@ func (s *RequestService) DeleteRequest(ctx context.Context, id int) error {
 }
 
 // calculateOrderCost рассчитывает стоимость заказа
-func (s *RequestService) calculateOrderCost(requestServices []repository.RequestService) float64 {
+func (s *CalculationService) calculateOrderCost(materialCalculations []repository.MaterialCalculation) float64 {
 	totalCost := 0.0
-	for _, rs := range requestServices {
-		unitCost := s.calculateUnitCost(rs.Service)
-		totalCost += unitCost * float64(rs.Quantity)
+	for _, mc := range materialCalculations {
+		unitCost := s.calculateUnitCost(mc.Material)
+		totalCost += unitCost * float64(mc.Quantity)
 	}
 	return totalCost
 }
 
 // calculateUnitCost рассчитывает стоимость единицы товара
-func (s *RequestService) calculateUnitCost(service repository.DBService) float64 {
+func (s *CalculationService) calculateUnitCost(material repository.DBMaterial) float64 {
 	// Простая формула расчета стоимости (пример)
 	basePrice := 100.0 // Базовая цена
-	if service.Density != nil {
-		basePrice += *service.Density * 0.1
+	if material.Density != nil {
+		basePrice += *material.Density * 0.1
 	}
-	if service.Thickness != nil {
-		basePrice += *service.Thickness * 2.0
+	if material.Thickness != nil {
+		basePrice += *material.Thickness * 2.0
 	}
 	return basePrice
 }
 
-// RequestServiceService содержит методы для работы со связью заявка-услуга
-type RequestServiceService struct {
+// MaterialCalculationService содержит методы для работы со связью расчёт-материал
+type MaterialCalculationService struct {
 	*Service
 }
 
-// NewRequestServiceService создает новый сервис связи заявка-услуга
-func NewRequestServiceService(svc *Service) *RequestServiceService {
-	return &RequestServiceService{Service: svc}
+// NewMaterialCalculationService создает новый сервис связи расчёт-материал
+func NewMaterialCalculationService(svc *Service) *MaterialCalculationService {
+	return &MaterialCalculationService{Service: svc}
 }
 
-// DeleteRequestService удаляет услугу из заявки
-func (s *RequestServiceService) DeleteRequestService(ctx context.Context, requestID, serviceID int) error {
+// DeleteMaterialCalculation удаляет материал из расчёта
+func (s *MaterialCalculationService) DeleteMaterialCalculation(ctx context.Context, calculationID, materialID int) error {
 	userID := s.GetCurrentUserID()
 
 	// Проверяем права доступа
-	var request repository.Request
-	if err := s.db.Where("id = ? AND creator_id = ?", requestID, userID).First(&request).Error; err != nil {
+	var calculation repository.Calculation
+	if err := s.db.Where("id = ? AND creator_id = ?", calculationID, userID).First(&calculation).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ErrRequestNotFound
+			return ErrCalculationNotFound
 		}
 		return err
 	}
 
 	// Удаляем связь
-	if err := s.db.Where("request_id = ? AND service_id = ?", requestID, serviceID).Delete(&repository.RequestService{}).Error; err != nil {
+	if err := s.db.Where("calculation_id = ? AND material_id = ?", calculationID, materialID).Delete(&repository.MaterialCalculation{}).Error; err != nil {
 		return err
 	}
 
 	return nil
 }
 
-// UpdateRequestService обновляет связь заявка-услуга
-func (s *RequestServiceService) UpdateRequestService(ctx context.Context, requestID, serviceID int, req models.UpdateRequestServiceRequest) error {
+// UpdateMaterialCalculation обновляет связь расчёт-материал
+func (s *MaterialCalculationService) UpdateMaterialCalculation(ctx context.Context, calculationID, materialID int, req models.UpdateMaterialCalculationRequest) error {
 	userID := s.GetCurrentUserID()
 
 	// Проверяем права доступа
-	var request repository.Request
-	if err := s.db.Where("id = ? AND creator_id = ?", requestID, userID).First(&request).Error; err != nil {
+	var calculation repository.Calculation
+	if err := s.db.Where("id = ? AND creator_id = ?", calculationID, userID).First(&calculation).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ErrRequestNotFound
+			return ErrCalculationNotFound
 		}
 		return err
 	}
@@ -631,7 +631,7 @@ func (s *RequestServiceService) UpdateRequestService(ctx context.Context, reques
 	}
 
 	if len(updates) > 0 {
-		if err := s.db.Model(&repository.RequestService{}).Where("request_id = ? AND service_id = ?", requestID, serviceID).Updates(updates).Error; err != nil {
+		if err := s.db.Model(&repository.MaterialCalculation{}).Where("calculation_id = ? AND material_id = ?", calculationID, materialID).Updates(updates).Error; err != nil {
 			return err
 		}
 	}
@@ -742,11 +742,11 @@ func (s *UserService) UpdateProfile(ctx context.Context, userID int, req models.
 
 // Ошибки сервиса
 var (
-	ErrServiceNotFound              = errors.New("услуга не найдена")
-	ErrRequestNotFound              = errors.New("заявка не найдена")
-	ErrUserNotFound                 = errors.New("пользователь не найден")
-	ErrUserAlreadyExists            = errors.New("пользователь уже существует")
-	ErrInvalidCredentials           = errors.New("неверные учетные данные")
-	ErrRequestMissingRequiredFields = errors.New("отсутствуют обязательные поля заявки")
-	ErrInvalidAction                = errors.New("неверное действие")
+	ErrMaterialNotFound                 = errors.New("материал не найден")
+	ErrCalculationNotFound              = errors.New("расчёт не найден")
+	ErrUserNotFound                     = errors.New("пользователь не найден")
+	ErrUserAlreadyExists                = errors.New("пользователь уже существует")
+	ErrInvalidCredentials               = errors.New("неверные учетные данные")
+	ErrCalculationMissingRequiredFields = errors.New("отсутствуют обязательные поля расчёта")
+	ErrInvalidAction                    = errors.New("неверное действие")
 )

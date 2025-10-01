@@ -2,22 +2,22 @@
 	"info": {
 		"_postman_id": "ultrarezina-api-collection-fixed",
 		"name": "UltraRezina REST API (Fixed)",
-		"description": "Исправленная коллекция запросов для тестирования REST API системы UltraRezina.\n\n**Новая функциональность:**\n- При завершении заявки (action=complete) API возвращает детальные результаты вычислений для каждого товара в корзине\n- Результаты включают: частоту вибрации, процент эффективности, стоимость единицы и общую стоимость\n- При отклонении заявки (action=reject) возвращается пустой массив результатов вычислений\n\n**Структура ответа при завершении заявки:**\n```json\n{\n  \"request_id\": 83,\n  \"status\": \"completed\",\n  \"total_cost\": 426,\n  \"delivery_date\": \"2025-10-30T16:18:29.032088+03:00\",\n  \"calculation_results\": [\n    {\n      \"service_id\": 2,\n      \"service_name\": \"Полиуретановый демпфер PU-450\",\n      \"quantity\": 1,\n      \"result_freq\": 5.032921210448704,\n      \"result_percent\": 90.85470823690686,\n      \"unit_cost\": 255,\n      \"total_cost\": 255\n    }\n  ],\n  \"message\": \"Заявка завершена\"\n}\n```",
+		"description": "Исправленная коллекция запросов для тестирования REST API системы UltraRezina.\n\n**Новая функциональность:**\n- При завершении расчёти (action=complete) API возвращает детальные результаты вычислений для каждого товара в корзине\n- Результаты включают: частоту вибрации, процент эффективности, стоимость единицы и общую стоимость\n- При отклонении расчёти (action=reject) возвращается пустой массив результатов вычислений\n\n**Структура ответа при завершении расчёти:**\n```json\n{\n  \"calculation_id\": 83,\n  \"status\": \"completed\",\n  \"total_cost\": 426,\n  \"delivery_date\": \"2025-10-30T16:18:29.032088+03:00\",\n  \"calculation_results\": [\n    {\n      \"material_id\": 2,\n      \"material_name\": \"Полиуретановый демпфер PU-450\",\n      \"quantity\": 1,\n      \"result_freq\": 5.032921210448704,\n      \"result_percent\": 90.85470823690686,\n      \"unit_cost\": 255,\n      \"total_cost\": 255\n    }\n  ],\n  \"message\": \"Заявка завершена\"\n}\n```",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"item": [
 		{
-			"name": "Услуги",
+			"name": "Материалы",
 			"item": [
 				{
-					"name": "Получить список услуг",
+					"name": "Получить список материалов",
 					"request": {
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/v1/services?name=&material=&thickness_min=&thickness_max=&density_min=&density_max=&page=1&limit=10",
+							"raw": "{{base_url}}/api/v1/materials?name=&material=&thickness_min=&thickness_max=&density_min=&density_max=&page=1&limit=10",
 							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "services"],
+							"path": ["api", "v1", "materials"],
 							"query": [
 								{"key": "name", "value": "", "description": "Поиск по названию"},
 								{"key": "material", "value": "", "description": "Фильтр по материалу"},
@@ -33,20 +33,20 @@
 					"response": []
 				},
 				{
-					"name": "Получить услугу по ID",
+					"name": "Получить материалову по ID",
 					"request": {
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/v1/services/1",
+							"raw": "{{base_url}}/api/v1/materials/1",
 							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "services", "1"]
+							"path": ["api", "v1", "materials", "1"]
 						}
 					},
 					"response": []
 				},
 				{
-					"name": "Создать новую услугу",
+					"name": "Создать новую материалову",
 					"request": {
 						"method": "POST",
 						"header": [
@@ -60,15 +60,15 @@
 							"raw": "{\n  \"name\": \"Тестовая резина\",\n  \"description\": \"Описание тестовой резины\",\n  \"density\": 120.5,\n  \"thickness\": 10.0,\n  \"material\": \"EPDM\"\n}"
 						},
 						"url": {
-							"raw": "{{base_url}}/api/v1/services",
+							"raw": "{{base_url}}/api/v1/materials",
 							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "services"]
+							"path": ["api", "v1", "materials"]
 						}
 					},
 					"response": []
 				},
 				{
-					"name": "Обновить услугу",
+					"name": "Обновить материалову",
 					"request": {
 						"method": "PUT",
 						"header": [
@@ -82,41 +82,41 @@
 							"raw": "{\n  \"name\": \"Обновленная резина\",\n  \"description\": \"Новое описание\",\n  \"density\": 130.0,\n  \"thickness\": 12.0,\n  \"material\": \"NBR\"\n}"
 						},
 						"url": {
-							"raw": "{{base_url}}/api/v1/services/1",
+							"raw": "{{base_url}}/api/v1/materials/1",
 							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "services", "1"]
+							"path": ["api", "v1", "materials", "1"]
 						}
 					},
 					"response": []
 				},
 				{
-					"name": "Удалить услугу",
+					"name": "Удалить материалову",
 					"request": {
 						"method": "DELETE",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/v1/services/1",
+							"raw": "{{base_url}}/api/v1/materials/1",
 							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "services", "1"]
+							"path": ["api", "v1", "materials", "1"]
 						}
 					},
 					"response": []
 				},
 				{
-					"name": "Добавить услугу в корзину",
+					"name": "Добавить материалову в корзину",
 					"request": {
 						"method": "POST",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/v1/services/1/add-to-cart",
+							"raw": "{{base_url}}/api/v1/materials/1/add-to-cart",
 							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "services", "1", "add-to-cart"]
+							"path": ["api", "v1", "materials", "1", "add-to-cart"]
 						}
 					},
 					"response": []
 				},
 				{
-					"name": "Загрузить изображение услуги",
+					"name": "Загрузить изображение материалови",
 					"request": {
 						"method": "POST",
 						"header": [],
@@ -131,9 +131,9 @@
 							]
 						},
 						"url": {
-							"raw": "{{base_url}}/api/v1/services/1/image",
+							"raw": "{{base_url}}/api/v1/materials/1/image",
 							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "services", "1", "image"]
+							"path": ["api", "v1", "materials", "1", "image"]
 						}
 					},
 					"response": []
@@ -141,7 +141,7 @@
 			]
 		},
 		{
-			"name": "Заявки",
+			"name": "Расчёты",
 			"item": [
 				{
 					"name": "Получить информацию о корзине",
@@ -149,9 +149,9 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/v1/requests/cart-info",
+							"raw": "{{base_url}}/api/v1/calculations/cart-info",
 							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "requests", "cart-info"]
+							"path": ["api", "v1", "calculations", "cart-info"]
 						}
 					},
 					"response": []
@@ -162,9 +162,9 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/v1/requests?status=&formed_from=&formed_to=&page=1&limit=10",
+							"raw": "{{base_url}}/api/v1/calculations?status=&formed_from=&formed_to=&page=1&limit=10",
 							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "requests"],
+							"path": ["api", "v1", "calculations"],
 							"query": [
 								{"key": "status", "value": "", "description": "Фильтр по статусу"},
 								{"key": "formed_from", "value": "", "description": "Дата формирования от (YYYY-MM-DD)"},
@@ -177,33 +177,33 @@
 					"response": []
 				},
 				{
-					"name": "Получить заявку по ID",
+					"name": "Получить расчёту по ID",
 					"request": {
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/v1/requests/1",
+							"raw": "{{base_url}}/api/v1/calculations/1",
 							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "requests", "1"]
+							"path": ["api", "v1", "calculations", "1"]
 						}
 					},
 					"response": []
 				},
 				{
-					"name": "Получить услуги в заявке",
+					"name": "Получить материалови в расчёте",
 					"request": {
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/v1/requests/1/services",
+							"raw": "{{base_url}}/api/v1/calculations/1/materials",
 							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "requests", "1", "services"]
+							"path": ["api", "v1", "calculations", "1", "materials"]
 						}
 					},
 					"response": []
 				},
 				{
-					"name": "Обновить заявку",
+					"name": "Обновить расчёту",
 					"request": {
 						"method": "PUT",
 						"header": [
@@ -214,38 +214,38 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"title\": \"Тестовая заявка\",\n  \"description\": \"Описание тестовой заявки\"\n}"
+							"raw": "{\n  \"title\": \"Тестовая расчёта\",\n  \"description\": \"Описание тестовой расчёти\"\n}"
 						},
 						"url": {
-							"raw": "{{base_url}}/api/v1/requests/1",
+							"raw": "{{base_url}}/api/v1/calculations/1",
 							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "requests", "1"]
+							"path": ["api", "v1", "calculations", "1"]
 						}
 					},
 					"response": []
 				},
 				{
-					"name": "Сформировать заявку",
+					"name": "Сформировать расчёту",
 					"request": {
 						"method": "PUT",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/v1/requests/1/form",
+							"raw": "{{base_url}}/api/v1/calculations/1/form",
 							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "requests", "1", "form"]
+							"path": ["api", "v1", "calculations", "1", "form"]
 						}
 					},
 					"response": []
 				},
 				{
-					"name": "Завершить заявку",
+					"name": "Завершить расчёту",
 					"request": {
 						"method": "PUT",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/v1/requests/1/status?action=complete",
+							"raw": "{{base_url}}/api/v1/calculations/1/status?action=complete",
 							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "requests", "1", "status"],
+							"path": ["api", "v1", "calculations", "1", "status"],
 							"query": [
 								{"key": "action", "value": "complete", "description": "complete или reject"}
 							]
@@ -253,14 +253,14 @@
 					},
 					"response": [
 						{
-							"name": "Успешное завершение заявки с результатами вычислений",
+							"name": "Успешное завершение расчёти с результатами вычислений",
 							"originalRequest": {
 								"method": "PUT",
 								"header": [],
 								"url": {
-									"raw": "{{base_url}}/api/v1/requests/83/status?action=complete",
+									"raw": "{{base_url}}/api/v1/calculations/83/status?action=complete",
 									"host": ["{{base_url}}"],
-									"path": ["api", "v1", "requests", "83", "status"],
+									"path": ["api", "v1", "calculations", "83", "status"],
 									"query": [
 										{"key": "action", "value": "complete"}
 									]
@@ -276,19 +276,19 @@
 								}
 							],
 							"cookie": [],
-							"body": "{\n  \"request_id\": 83,\n  \"status\": \"completed\",\n  \"total_cost\": 426,\n  \"delivery_date\": \"2025-10-30T16:18:29.032088+03:00\",\n  \"calculation_results\": [\n    {\n      \"service_id\": 2,\n      \"service_name\": \"Полиуретановый демпфер PU-450\",\n      \"quantity\": 1,\n      \"result_freq\": 5.032921210448704,\n      \"result_percent\": 90.85470823690686,\n      \"unit_cost\": 255,\n      \"total_cost\": 255\n    },\n    {\n      \"service_id\": 3,\n      \"service_name\": \"Пробковая подложка CorkMat 8mm\",\n      \"quantity\": 1,\n      \"result_freq\": 5.032921210448704,\n      \"result_percent\": 90.85470823690686,\n      \"unit_cost\": 171,\n      \"total_cost\": 171\n    }\n  ],\n  \"message\": \"Заявка завершена\"\n}"
+							"body": "{\n  \"calculation_id\": 83,\n  \"status\": \"completed\",\n  \"total_cost\": 426,\n  \"delivery_date\": \"2025-10-30T16:18:29.032088+03:00\",\n  \"calculation_results\": [\n    {\n      \"material_id\": 2,\n      \"material_name\": \"Полиуретановый демпфер PU-450\",\n      \"quantity\": 1,\n      \"result_freq\": 5.032921210448704,\n      \"result_percent\": 90.85470823690686,\n      \"unit_cost\": 255,\n      \"total_cost\": 255\n    },\n    {\n      \"material_id\": 3,\n      \"material_name\": \"Пробковая подложка CorkMat 8mm\",\n      \"quantity\": 1,\n      \"result_freq\": 5.032921210448704,\n      \"result_percent\": 90.85470823690686,\n      \"unit_cost\": 171,\n      \"total_cost\": 171\n    }\n  ],\n  \"message\": \"Заявка завершена\"\n}"
 						}
 					]
 				},
 				{
-					"name": "Отклонить заявку",
+					"name": "Отклонить расчёту",
 					"request": {
 						"method": "PUT",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/v1/requests/1/status?action=reject",
+							"raw": "{{base_url}}/api/v1/calculations/1/status?action=reject",
 							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "requests", "1", "status"],
+							"path": ["api", "v1", "calculations", "1", "status"],
 							"query": [
 								{"key": "action", "value": "reject", "description": "complete или reject"}
 							]
@@ -296,14 +296,14 @@
 					},
 					"response": [
 						{
-							"name": "Успешное отклонение заявки",
+							"name": "Успешное отклонение расчёти",
 							"originalRequest": {
 								"method": "PUT",
 								"header": [],
 								"url": {
-									"raw": "{{base_url}}/api/v1/requests/84/status?action=reject",
+									"raw": "{{base_url}}/api/v1/calculations/84/status?action=reject",
 									"host": ["{{base_url}}"],
-									"path": ["api", "v1", "requests", "84", "status"],
+									"path": ["api", "v1", "calculations", "84", "status"],
 									"query": [
 										{"key": "action", "value": "reject"}
 									]
@@ -319,41 +319,41 @@
 								}
 							],
 							"cookie": [],
-							"body": "{\n  \"request_id\": 84,\n  \"status\": \"rejected\",\n  \"total_cost\": 0,\n  \"delivery_date\": null,\n  \"calculation_results\": [],\n  \"message\": \"Заявка отклонена\"\n}"
+							"body": "{\n  \"calculation_id\": 84,\n  \"status\": \"rejected\",\n  \"total_cost\": 0,\n  \"delivery_date\": null,\n  \"calculation_results\": [],\n  \"message\": \"Заявка отклонена\"\n}"
 						}
 					]
 				},
 				{
-					"name": "Удалить заявку",
+					"name": "Удалить расчёту",
 					"request": {
 						"method": "DELETE",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/v1/requests/1",
+							"raw": "{{base_url}}/api/v1/calculations/1",
 							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "requests", "1"]
+							"path": ["api", "v1", "calculations", "1"]
 						}
 					},
 					"response": []
 				},
 				{
-					"name": "Полный цикл: Создание и завершение заявки с результатами",
+					"name": "Полный цикл: Создание и завершение расчёти с результатами",
 					"item": [
 						{
-							"name": "1. Добавить услугу в корзину",
+							"name": "1. Добавить материалову в корзину",
 							"request": {
 								"method": "POST",
 								"header": [],
 								"url": {
-									"raw": "{{base_url}}/api/v1/services/2/add-to-cart",
+									"raw": "{{base_url}}/api/v1/materials/2/add-to-cart",
 									"host": ["{{base_url}}"],
-									"path": ["api", "v1", "services", "2", "add-to-cart"]
+									"path": ["api", "v1", "materials", "2", "add-to-cart"]
 								}
 							},
 							"response": []
 						},
 						{
-							"name": "2. Обновить заявку",
+							"name": "2. Обновить расчёту",
 							"request": {
 								"method": "PUT",
 								"header": [
@@ -364,38 +364,38 @@
 								],
 								"body": {
 									"mode": "raw",
-									"raw": "{\n  \"title\": \"Демонстрационная заявка\",\n  \"description\": \"Заявка для демонстрации результатов вычислений\"\n}"
+									"raw": "{\n  \"title\": \"Демонстрационная расчёта\",\n  \"description\": \"Заявка для демонстрации результатов вычислений\"\n}"
 								},
 								"url": {
-									"raw": "{{base_url}}/api/v1/requests/{{request_id}}",
+									"raw": "{{base_url}}/api/v1/calculations/{{calculation_id}}",
 									"host": ["{{base_url}}"],
-									"path": ["api", "v1", "requests", "{{request_id}}"]
+									"path": ["api", "v1", "calculations", "{{calculation_id}}"]
 								}
 							},
 							"response": []
 						},
 						{
-							"name": "3. Сформировать заявку",
+							"name": "3. Сформировать расчёту",
 							"request": {
 								"method": "PUT",
 								"header": [],
 								"url": {
-									"raw": "{{base_url}}/api/v1/requests/{{request_id}}/form",
+									"raw": "{{base_url}}/api/v1/calculations/{{calculation_id}}/form",
 									"host": ["{{base_url}}"],
-									"path": ["api", "v1", "requests", "{{request_id}}", "form"]
+									"path": ["api", "v1", "calculations", "{{calculation_id}}", "form"]
 								}
 							},
 							"response": []
 						},
 						{
-							"name": "4. Завершить заявку с результатами вычислений",
+							"name": "4. Завершить расчёту с результатами вычислений",
 							"request": {
 								"method": "PUT",
 								"header": [],
 								"url": {
-									"raw": "{{base_url}}/api/v1/requests/{{request_id}}/status?action=complete",
+									"raw": "{{base_url}}/api/v1/calculations/{{calculation_id}}/status?action=complete",
 									"host": ["{{base_url}}"],
-									"path": ["api", "v1", "requests", "{{request_id}}", "status"],
+									"path": ["api", "v1", "calculations", "{{calculation_id}}", "status"],
 									"query": [
 										{"key": "action", "value": "complete"}
 									]
@@ -408,10 +408,10 @@
 			]
 		},
 		{
-			"name": "Связи Заявка-Услуга",
+			"name": "Связи Расчёт-Материал",
 			"item": [
 				{
-					"name": "Обновить связь заявка-услуга",
+					"name": "Обновить связь расчёта-материалова",
 					"request": {
 						"method": "PUT",
 						"header": [
@@ -425,22 +425,22 @@
 							"raw": "{\n  \"quantity\": 3,\n  \"sort_order\": 1,\n  \"comment\": \"Обновленный комментарий\"\n}"
 						},
 						"url": {
-							"raw": "{{base_url}}/api/v1/requests/1/services/1",
+							"raw": "{{base_url}}/api/v1/calculations/1/materials/1",
 							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "requests", "1", "services", "1"]
+							"path": ["api", "v1", "calculations", "1", "materials", "1"]
 						}
 					},
 					"response": []
 				},
 				{
-					"name": "Удалить услугу из заявки",
+					"name": "Удалить материалову из расчёти",
 					"request": {
 						"method": "DELETE",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/v1/requests/1/services/1",
+							"raw": "{{base_url}}/api/v1/calculations/1/materials/1",
 							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "requests", "1", "services", "1"]
+							"path": ["api", "v1", "calculations", "1", "materials", "1"]
 						}
 					},
 					"response": []
@@ -552,9 +552,9 @@
 			"description": "Базовый URL API сервера"
 		},
 		{
-			"key": "request_id",
+			"key": "calculation_id",
 			"value": "1",
-			"description": "ID заявки для тестирования (автоматически обновляется при создании новой заявки)"
+			"description": "ID расчёти для тестирования (автоматически обновляется при создании новой расчёти)"
 		}
 	]
 }

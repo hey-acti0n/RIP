@@ -72,9 +72,9 @@
 
         <h2 class="center">Результат</h2>
         <section id="results" class="stack">
-          {{if .CartServices}}
+          {{if .CartMaterials}}
             {{/* Для каждого товара своя плитка результата */}}
-            {{range $i, $svc := .CartServices}}
+            {{range $i, $svc := .CartMaterials}}
             <div class="result-card">
             <div style="display: flex; gap: 16px; align-items: flex-start;">
               <!-- Изображение товара -->
@@ -111,7 +111,7 @@
                   <label style="display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px;">Собственная частота (Гц)</label>
                   <div class="result-field">
                     {{range $.Results}}
-                      {{if eq .ServiceName $svc.Name}}
+                      {{if eq .MaterialName $svc.Name}}
                         {{printf "%.2f" .NaturalHz}}
                       {{end}}
                     {{end}}
@@ -124,7 +124,7 @@
                   <label style="display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px;">Изоляция (%)</label>
                   <div class="result-field">
                     {{range $.Results}}
-                      {{if eq .ServiceName $svc.Name}}
+                      {{if eq .MaterialName $svc.Name}}
                         {{printf "%.1f" .Isolation}}%
                       {{end}}
                     {{end}}

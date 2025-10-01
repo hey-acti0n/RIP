@@ -74,8 +74,8 @@ func Start() {
 	http.HandleFunc("/clear", srv.HandleClear)
 
 	// API
-	http.HandleFunc("/api/services", srv.ApiServices)
-	http.HandleFunc("/api/services/", srv.ApiServiceByID)
+	http.HandleFunc("/api/materials", srv.ApiMaterials)
+	http.HandleFunc("/api/materials/", srv.ApiMaterialByID)
 	http.HandleFunc("/api/add", srv.ApiAddToCart)
 	http.HandleFunc("/api/cart", srv.ApiCart)
 	http.HandleFunc("/api/clear", srv.ApiClearCart)

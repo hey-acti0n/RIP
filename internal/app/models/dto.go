@@ -6,8 +6,8 @@ import (
 	"rip/internal/app/repository"
 )
 
-// ServiceFilters содержит фильтры для поиска услуг
-type ServiceFilters struct {
+// MaterialFilters содержит фильтры для поиска материалов
+type MaterialFilters struct {
 	Name         string   `json:"name"`
 	Material     string   `json:"material"`
 	ThicknessMin *float64 `json:"thickness_min"`
@@ -18,8 +18,8 @@ type ServiceFilters struct {
 	Limit        int      `json:"limit"`
 }
 
-// CreateServiceRequest содержит данные для создания услуги
-type CreateServiceRequest struct {
+// CreateMaterialRequest содержит данные для создания материала
+type CreateMaterialRequest struct {
 	Name        string   `json:"name" validate:"required"`
 	Description string   `json:"description"`
 	ImageURL    string   `json:"image_url"`
@@ -28,8 +28,8 @@ type CreateServiceRequest struct {
 	Material    *string  `json:"material"`
 }
 
-// UpdateServiceRequest содержит данные для обновления услуги
-type UpdateServiceRequest struct {
+// UpdateMaterialRequest содержит данные для обновления материала
+type UpdateMaterialRequest struct {
 	Name        string   `json:"name"`
 	Description string   `json:"description"`
 	ImageURL    string   `json:"image_url"`
@@ -38,8 +38,8 @@ type UpdateServiceRequest struct {
 	Material    *string  `json:"material"`
 }
 
-// RequestFilters содержит фильтры для поиска заявок
-type RequestFilters struct {
+// CalculationFilters содержит фильтры для поиска расчётов
+type CalculationFilters struct {
 	Status     string     `json:"status"`
 	FormedFrom *time.Time `json:"formed_from"`
 	FormedTo   *time.Time `json:"formed_to"`
@@ -47,35 +47,35 @@ type RequestFilters struct {
 	Limit      int        `json:"limit"`
 }
 
-// RequestWithUsers содержит заявку с информацией о пользователях
-type RequestWithUsers struct {
-	repository.Request
+// CalculationWithUsers содержит расчёт с информацией о пользователях
+type CalculationWithUsers struct {
+	repository.Calculation
 	CreatorLogin   string  `json:"creator_login"`
 	ModeratorLogin *string `json:"moderator_login,omitempty"`
 }
 
-// RequestWithServices содержит заявку с услугами
-type RequestWithServices struct {
-	repository.Request
-	CreatorLogin    string                      `json:"creator_login"`
-	ModeratorLogin  *string                     `json:"moderator_login,omitempty"`
-	RequestServices []repository.RequestService `json:"request_services"`
+// CalculationWithMaterials содержит расчёт с материалами
+type CalculationWithMaterials struct {
+	repository.Calculation
+	CreatorLogin         string                           `json:"creator_login"`
+	ModeratorLogin       *string                          `json:"moderator_login,omitempty"`
+	MaterialCalculations []repository.MaterialCalculation `json:"material_calculations"`
 }
 
-// UpdateRequestRequest содержит данные для обновления заявки
-type UpdateRequestRequest struct {
+// UpdateCalculationRequest содержит данные для обновления расчёта
+type UpdateCalculationRequest struct {
 	Title       string `json:"title"`
 	Description string `json:"description"`
 }
 
 // CartInfo содержит информацию о корзине
 type CartInfo struct {
-	RequestID int `json:"request_id"`
-	ItemCount int `json:"item_count"`
+	CalculationID int `json:"calculation_id"`
+	ItemCount     int `json:"item_count"`
 }
 
-// UpdateRequestServiceRequest содержит данные для обновления связи заявка-услуга
-type UpdateRequestServiceRequest struct {
+// UpdateMaterialCalculationRequest содержит данные для обновления связи расчёт-материал
+type UpdateMaterialCalculationRequest struct {
 	Quantity  *int   `json:"quantity"`
 	SortOrder *int   `json:"sort_order"`
 	IsMain    *bool  `json:"is_main"`
@@ -108,8 +108,8 @@ type UpdateProfileRequest struct {
 	Email    string `json:"email"`
 }
 
-// ServiceResponse представляет услугу в API ответе
-type ServiceResponse struct {
+// MaterialResponse представляет материал в API ответе
+type MaterialResponse struct {
 	ID          int       `json:"id"`
 	Name        string    `json:"name"`
 	Description string    `json:"description"`
@@ -121,8 +121,8 @@ type ServiceResponse struct {
 	CreatedAt   time.Time `json:"created_at"`
 }
 
-// RequestResponse представляет заявку в API ответе
-type RequestResponse struct {
+// CalculationResponse представляет расчёт в API ответе
+type CalculationResponse struct {
 	ID             int        `json:"id"`
 	Status         string     `json:"status"`
 	Title          string     `json:"title"`
@@ -138,18 +138,18 @@ type RequestResponse struct {
 	DeliveryDate   *time.Time `json:"delivery_date,omitempty"`
 }
 
-// RequestServiceResponse представляет связь заявка-услуга в API ответе
-type RequestServiceResponse struct {
-	RequestID     int             `json:"request_id"`
-	ServiceID     int             `json:"service_id"`
-	Quantity      int             `json:"quantity"`
-	SortOrder     int             `json:"sort_order"`
-	IsMain        bool            `json:"is_main"`
-	Comment       string          `json:"comment"`
-	ResultFreq    *float64        `json:"result_freq,omitempty"`
-	ResultPercent *float64        `json:"result_percent,omitempty"`
-	CreatedAt     time.Time       `json:"created_at"`
-	Service       ServiceResponse `json:"service"`
+// MaterialCalculationResponse представляет связь расчёт-материал в API ответе
+type MaterialCalculationResponse struct {
+	CalculationID int              `json:"calculation_id"`
+	MaterialID    int              `json:"material_id"`
+	Quantity      int              `json:"quantity"`
+	SortOrder     int              `json:"sort_order"`
+	IsMain        bool             `json:"is_main"`
+	Comment       string           `json:"comment"`
+	ResultFreq    *float64         `json:"result_freq,omitempty"`
+	ResultPercent *float64         `json:"result_percent,omitempty"`
+	CreatedAt     time.Time        `json:"created_at"`
+	Material      MaterialResponse `json:"material"`
 }
 
 // UserResponse представляет пользователя в API ответе
@@ -161,58 +161,58 @@ type UserResponse struct {
 	IsActive bool   `json:"is_active"`
 }
 
-// ConvertToServiceResponse конвертирует DBService в ServiceResponse
-func ConvertToServiceResponse(service repository.DBService) ServiceResponse {
+// ConvertToMaterialResponse конвертирует DBMaterial в MaterialResponse
+func ConvertToMaterialResponse(material repository.DBMaterial) MaterialResponse {
 	var createdAt time.Time
-	if service.CreatedAt != nil {
-		createdAt = *service.CreatedAt
+	if material.CreatedAt != nil {
+		createdAt = *material.CreatedAt
 	}
 
-	return ServiceResponse{
-		ID:          service.ID,
-		Name:        service.Name,
-		Description: service.Description,
-		ImageURL:    service.ImageURL,
-		IsActive:    service.IsActive,
-		Density:     service.Density,
-		Thickness:   service.Thickness,
-		Material:    service.Material,
+	return MaterialResponse{
+		ID:          material.ID,
+		Name:        material.Name,
+		Description: material.Description,
+		ImageURL:    material.ImageURL,
+		IsActive:    material.IsActive,
+		Density:     material.Density,
+		Thickness:   material.Thickness,
+		Material:    material.Material,
 		CreatedAt:   createdAt,
 	}
 }
 
-// ConvertToRequestResponse конвертирует RequestWithUsers в RequestResponse
-func ConvertToRequestResponse(req RequestWithUsers) RequestResponse {
-	return RequestResponse{
-		ID:             req.ID,
-		Status:         req.Status,
-		Title:          req.Title,
-		Description:    req.Description,
-		CreatorID:      req.CreatorID,
-		CreatorLogin:   req.CreatorLogin,
-		ModeratorID:    req.ModeratorID,
-		ModeratorLogin: req.ModeratorLogin,
-		CreatedAt:      req.CreatedAt,
-		FormedAt:       req.FormedAt,
-		CompletedAt:    req.CompletedAt,
-		TotalCost:      req.TotalCost,
-		DeliveryDate:   req.DeliveryDate,
+// ConvertToCalculationResponse конвертирует CalculationWithUsers в CalculationResponse
+func ConvertToCalculationResponse(calc CalculationWithUsers) CalculationResponse {
+	return CalculationResponse{
+		ID:             calc.ID,
+		Status:         calc.Status,
+		Title:          calc.Title,
+		Description:    calc.Description,
+		CreatorID:      calc.CreatorID,
+		CreatorLogin:   calc.CreatorLogin,
+		ModeratorID:    calc.ModeratorID,
+		ModeratorLogin: calc.ModeratorLogin,
+		CreatedAt:      calc.CreatedAt,
+		FormedAt:       calc.FormedAt,
+		CompletedAt:    calc.CompletedAt,
+		TotalCost:      calc.TotalCost,
+		DeliveryDate:   calc.DeliveryDate,
 	}
 }
 
-// ConvertToRequestServiceResponse конвертирует RequestService в RequestServiceResponse
-func ConvertToRequestServiceResponse(rs repository.RequestService) RequestServiceResponse {
-	return RequestServiceResponse{
-		RequestID:     rs.RequestID,
-		ServiceID:     rs.ServiceID,
-		Quantity:      rs.Quantity,
-		SortOrder:     rs.SortOrder,
-		IsMain:        rs.IsMain,
-		Comment:       rs.Comment,
-		ResultFreq:    rs.ResultFreq,
-		ResultPercent: rs.ResultPercent,
-		CreatedAt:     rs.CreatedAt,
-		Service:       ConvertToServiceResponse(rs.Service),
+// ConvertToMaterialCalculationResponse конвертирует MaterialCalculation в MaterialCalculationResponse
+func ConvertToMaterialCalculationResponse(mc repository.MaterialCalculation) MaterialCalculationResponse {
+	return MaterialCalculationResponse{
+		CalculationID: mc.CalculationID,
+		MaterialID:    mc.MaterialID,
+		Quantity:      mc.Quantity,
+		SortOrder:     mc.SortOrder,
+		IsMain:        mc.IsMain,
+		Comment:       mc.Comment,
+		ResultFreq:    mc.ResultFreq,
+		ResultPercent: mc.ResultPercent,
+		CreatedAt:     mc.CreatedAt,
+		Material:      ConvertToMaterialResponse(mc.Material),
 	}
 }
 
@@ -227,10 +227,10 @@ func ConvertToUserResponse(user repository.User) UserResponse {
 	}
 }
 
-// CalculationResult представляет результат вычислений для товара в корзине
+// CalculationResult представляет результат вычислений для материала в расчёте
 type CalculationResult struct {
-	ServiceID     int     `json:"service_id"`
-	ServiceName   string  `json:"service_name"`
+	MaterialID    int     `json:"material_id"`
+	MaterialName  string  `json:"material_name"`
 	Quantity      int     `json:"quantity"`
 	ResultFreq    float64 `json:"result_freq"`
 	ResultPercent float64 `json:"result_percent"`
@@ -238,12 +238,12 @@ type CalculationResult struct {
 	TotalCost     float64 `json:"total_cost"`
 }
 
-// CompleteRequestResponse представляет ответ при завершении заявки
-type CompleteRequestResponse struct {
-	RequestID        int                `json:"request_id"`
-	Status           string             `json:"status"`
-	TotalCost        float64            `json:"total_cost"`
-	DeliveryDate     *time.Time         `json:"delivery_date,omitempty"`
+// CompleteCalculationResponse представляет ответ при завершении расчёта
+type CompleteCalculationResponse struct {
+	CalculationID      int                 `json:"calculation_id"`
+	Status             string              `json:"status"`
+	TotalCost          float64             `json:"total_cost"`
+	DeliveryDate       *time.Time          `json:"delivery_date,omitempty"`
 	CalculationResults []CalculationResult `json:"calculation_results"`
-	Message          string             `json:"message"`
+	Message            string              `json:"message"`
 }

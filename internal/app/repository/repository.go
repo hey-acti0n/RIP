@@ -16,7 +16,7 @@ import (
 
 // --- DB models ---
 
-type DBService struct {
+type DBMaterial struct {
 	ID          int        `gorm:"primaryKey;column:id" json:"id"`
 	Name        string     `gorm:"size:255;not null;column:name" json:"name"`
 	Description string     `gorm:"type:text;column:description" json:"description"`
@@ -28,9 +28,9 @@ type DBService struct {
 	CreatedAt   *time.Time `gorm:"autoCreateTime;column:created_at" json:"created_at,omitempty"`
 }
 
-func (DBService) TableName() string { return "services" }
+func (DBMaterial) TableName() string { return "materials" }
 
-type Request struct {
+type Calculation struct {
 	ID           int        `gorm:"primaryKey;column:id" json:"id"`
 	Status       string     `gorm:"size:50;column:status" json:"status"`
 	Title        string     `gorm:"size:255;column:title" json:"title"`
@@ -44,22 +44,22 @@ type Request struct {
 	DeliveryDate *time.Time `gorm:"column:delivery_date" json:"delivery_date,omitempty"`
 }
 
-func (Request) TableName() string { return "requests" }
+func (Calculation) TableName() string { return "calculations" }
 
-type RequestService struct {
-	RequestID     int       `gorm:"primaryKey;column:request_id" json:"request_id"`
-	ServiceID     int       `gorm:"primaryKey;column:service_id" json:"service_id"`
-	Quantity      int       `gorm:"not null;default:1;column:quantity" json:"quantity"`
-	SortOrder     int       `gorm:"not null;default:0;column:sort_order" json:"sort_order"`
-	IsMain        bool      `gorm:"not null;default:false;column:is_main" json:"is_main"`
-	Comment       string    `gorm:"type:text;column:comment" json:"comment"`
-	ResultFreq    *float64  `gorm:"column:result_freq" json:"result_freq,omitempty"`
-	ResultPercent *float64  `gorm:"column:result_percent" json:"result_percent,omitempty"`
-	CreatedAt     time.Time `gorm:"autoCreateTime;column:created_at" json:"created_at"`
-	Service       DBService `gorm:"foreignKey:ServiceID" json:"-"`
+type MaterialCalculation struct {
+	CalculationID int        `gorm:"primaryKey;column:calculation_id" json:"calculation_id"`
+	MaterialID    int        `gorm:"primaryKey;column:material_id" json:"material_id"`
+	Quantity      int        `gorm:"not null;default:1;column:quantity" json:"quantity"`
+	SortOrder     int        `gorm:"not null;default:0;column:sort_order" json:"sort_order"`
+	IsMain        bool       `gorm:"not null;default:false;column:is_main" json:"is_main"`
+	Comment       string     `gorm:"type:text;column:comment" json:"comment"`
+	ResultFreq    *float64   `gorm:"column:result_freq" json:"result_freq,omitempty"`
+	ResultPercent *float64   `gorm:"column:result_percent" json:"result_percent,omitempty"`
+	CreatedAt     time.Time  `gorm:"autoCreateTime;column:created_at" json:"created_at"`
+	Material      DBMaterial `gorm:"foreignKey:MaterialID" json:"-"`
 }
 
-func (RequestService) TableName() string { return "request_services" }
+func (MaterialCalculation) TableName() string { return "material_calculation" }
 
 type User struct {
 	ID        int       `gorm:"primaryKey;autoIncrement;column:id" json:"id"`
@@ -96,23 +96,23 @@ func InitDB() *gorm.DB {
 	if err != nil {
 		panic(err)
 	}
-	_ = db.AutoMigrate(&DBService{}, &Request{}, &RequestService{}, &User{})
+	_ = db.AutoMigrate(&DBMaterial{}, &Calculation{}, &MaterialCalculation{}, &User{})
 	return db
 }
 
 // MountORMRoutes registers endpoints required by assignment
 func MountORMRoutes(db *gorm.DB) {
-	http.HandleFunc("/orm/services", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/orm/materials", func(w http.ResponseWriter, r *http.Request) {
 		q := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("q")))
 		thickness := strings.TrimSpace(r.URL.Query().Get("thickness"))
-		tx := db.Model(&DBService{}).Where("is_active = ?", true)
+		tx := db.Model(&DBMaterial{}).Where("is_active = ?", true)
 		if q != "" {
 			tx = tx.Where("LOWER(name) LIKE ?", "%"+q+"%")
 		}
 		if thickness != "" {
 			tx = tx.Where("CAST(thickness AS TEXT) LIKE ?", "%"+thickness+"%")
 		}
-		var items []DBService
+		var items []DBMaterial
 		if err := tx.Order("id").Find(&items).Error; err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -144,7 +144,7 @@ func MountORMRoutes(db *gorm.DB) {
 		WriteJSON(w, map[string]any{"count": len(items), "items": itemsWithURLs})
 	})
 
-	http.HandleFunc("/orm/request/add", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/orm/calculation/add", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
@@ -153,39 +153,39 @@ func MountORMRoutes(db *gorm.DB) {
 		if userID == 0 {
 			userID = 1
 		}
-		serviceID, _ := strconv.Atoi(r.FormValue("serviceId"))
-		if serviceID == 0 {
-			http.Error(w, "serviceId required", http.StatusBadRequest)
+		materialID, _ := strconv.Atoi(r.FormValue("materialId"))
+		if materialID == 0 {
+			http.Error(w, "materialId required", http.StatusBadRequest)
 			return
 		}
-		var req Request
-		if err := db.Where("creator_id = ? AND status = ?", userID, "pending").First(&req).Error; err != nil {
+		var calc Calculation
+		if err := db.Where("creator_id = ? AND status = ?", userID, "pending").First(&calc).Error; err != nil {
 			if err == gorm.ErrRecordNotFound {
-				if err := db.Model(&Request{}).Create(map[string]any{"creator_id": userID, "status": "pending"}).Error; err != nil {
+				if err := db.Model(&Calculation{}).Create(map[string]any{"creator_id": userID, "status": "pending"}).Error; err != nil {
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 					return
 				}
-				_ = db.Where("creator_id = ?", userID).Order("id desc").First(&req).Error
+				_ = db.Where("creator_id = ?", userID).Order("id desc").First(&calc).Error
 			} else {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
 		}
-		rs := RequestService{RequestID: req.ID, ServiceID: serviceID, Quantity: 1}
-		if err := db.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "request_id"}, {Name: "service_id"}}, DoUpdates: clause.Assignments(map[string]any{"quantity": gorm.Expr("request_services.quantity + 1")})}).Create(&rs).Error; err != nil {
+		mc := MaterialCalculation{CalculationID: calc.ID, MaterialID: materialID, Quantity: 1}
+		if err := db.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "calculation_id"}, {Name: "material_id"}}, DoUpdates: clause.Assignments(map[string]any{"quantity": gorm.Expr("material_calculation.quantity + 1")})}).Create(&mc).Error; err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		WriteJSON(w, map[string]any{"requestId": req.ID, "success": true})
+		WriteJSON(w, map[string]any{"calculationId": calc.ID, "success": true})
 	})
 
-	http.HandleFunc("/orm/request/current", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/orm/calculation/current", func(w http.ResponseWriter, r *http.Request) {
 		userID, _ := strconv.Atoi(r.URL.Query().Get("userId"))
 		if userID == 0 {
 			userID = 1
 		}
-		var req Request
-		if err := db.Where("creator_id = ? AND status = ?", userID, "pending").First(&req).Error; err != nil {
+		var calc Calculation
+		if err := db.Where("creator_id = ? AND status = ?", userID, "pending").First(&calc).Error; err != nil {
 			if err == gorm.ErrRecordNotFound {
 				WriteJSON(w, map[string]any{"exists": false})
 				return
@@ -193,39 +193,39 @@ func MountORMRoutes(db *gorm.DB) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		var items []RequestService
-		_ = db.Preload("Service").Where("request_id = ?", req.ID).Order("sort_order, service_id").Find(&items).Error
-		WriteJSON(w, map[string]any{"exists": true, "request": req, "items": items})
+		var items []MaterialCalculation
+		_ = db.Preload("Material").Where("calculation_id = ?", calc.ID).Order("sort_order, material_id").Find(&items).Error
+		WriteJSON(w, map[string]any{"exists": true, "calculation": calc, "items": items})
 	})
 
-	http.HandleFunc("/orm/request/delete", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/orm/calculation/delete", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		id := r.FormValue("requestId")
+		id := r.FormValue("calculationId")
 		if id == "" {
-			http.Error(w, "requestId required", http.StatusBadRequest)
+			http.Error(w, "calculationId required", http.StatusBadRequest)
 			return
 		}
-		if err := db.Exec("UPDATE requests SET status = 'rejected' WHERE id = ?", id).Error; err != nil {
+		if err := db.Exec("UPDATE calculations SET status = 'rejected' WHERE id = ?", id).Error; err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		WriteJSON(w, map[string]any{"deleted": true})
 	})
 
-	http.HandleFunc("/orm/request", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/orm/calculation", func(w http.ResponseWriter, r *http.Request) {
 		id := r.URL.Query().Get("id")
 		if id == "" {
 			http.NotFound(w, r)
 			return
 		}
-		var req Request
-		if err := db.Where("id = ? AND status <> 'rejected'", id).First(&req).Error; err != nil {
-			http.Error(w, "request not found or deleted", http.StatusNotFound)
+		var calc Calculation
+		if err := db.Where("id = ? AND status <> 'rejected'", id).First(&calc).Error; err != nil {
+			http.Error(w, "calculation not found or deleted", http.StatusNotFound)
 			return
 		}
-		WriteJSON(w, req)
+		WriteJSON(w, calc)
 	})
 }

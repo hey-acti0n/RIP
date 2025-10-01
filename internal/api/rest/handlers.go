@@ -183,3 +183,33 @@ func calculateTotalPages(total, limit int) int {
 	}
 	return pages
 }
+
+// MaterialHandler обрабатывает запросы для материалов
+type MaterialHandler struct {
+	*BaseHandler
+}
+
+// NewMaterialHandler создает новый обработчик материалов
+func NewMaterialHandler(svc *service.Service) *MaterialHandler {
+	return &MaterialHandler{BaseHandler: NewBaseHandler(svc)}
+}
+
+// CalculationHandler обрабатывает запросы для расчётов
+type CalculationHandler struct {
+	*BaseHandler
+}
+
+// NewCalculationHandler создает новый обработчик расчётов
+func NewCalculationHandler(svc *service.Service) *CalculationHandler {
+	return &CalculationHandler{BaseHandler: NewBaseHandler(svc)}
+}
+
+// MaterialCalculationHandler обрабатывает запросы для связи расчёт-материал
+type MaterialCalculationHandler struct {
+	*BaseHandler
+}
+
+// NewMaterialCalculationHandler создает новый обработчик связи расчёт-материал
+func NewMaterialCalculationHandler(svc *service.Service) *MaterialCalculationHandler {
+	return &MaterialCalculationHandler{BaseHandler: NewBaseHandler(svc)}
+}

@@ -23,39 +23,39 @@ func (r *Router) SetupRoutes() *mux.Router {
 	router := mux.NewRouter()
 
 	// Создаем обработчики
-	serviceHandler := NewServiceHandler(r.service)
-	requestHandler := NewRequestHandler(r.service)
-	requestServiceHandler := NewRequestServiceHandler(r.service)
+	materialHandler := NewMaterialHandler(r.service)
+	calculationHandler := NewCalculationHandler(r.service)
+	materialCalculationHandler := NewMaterialCalculationHandler(r.service)
 	userHandler := NewUserHandler(r.service)
 
 	// API v1
 	apiV1 := router.PathPrefix("/api/v1").Subrouter()
 
-	// Домен услуги
-	services := apiV1.PathPrefix("/services").Subrouter()
-	services.HandleFunc("", serviceHandler.GetServices).Methods("GET")
-	services.HandleFunc("/{id}", serviceHandler.GetService).Methods("GET")
-	services.HandleFunc("", serviceHandler.CreateService).Methods("POST")
-	services.HandleFunc("/{id}", serviceHandler.UpdateService).Methods("PUT")
-	services.HandleFunc("/{id}", serviceHandler.DeleteService).Methods("DELETE")
-	services.HandleFunc("/{id}/add-to-cart", serviceHandler.AddServiceToCart).Methods("POST")
-	services.HandleFunc("/{id}/image", serviceHandler.UploadServiceImage).Methods("POST")
+	// Домен материала
+	materials := apiV1.PathPrefix("/materials").Subrouter()
+	materials.HandleFunc("", materialHandler.GetMaterials).Methods("GET")
+	materials.HandleFunc("/{id}", materialHandler.GetMaterial).Methods("GET")
+	materials.HandleFunc("", materialHandler.CreateMaterial).Methods("POST")
+	materials.HandleFunc("/{id}", materialHandler.UpdateMaterial).Methods("PUT")
+	materials.HandleFunc("/{id}", materialHandler.DeleteMaterial).Methods("DELETE")
+	materials.HandleFunc("/{id}/add-to-cart", materialHandler.AddMaterialToCart).Methods("POST")
+	materials.HandleFunc("/{id}/image", materialHandler.UploadMaterialImage).Methods("POST")
 
-	// Домен заявки
-	requests := apiV1.PathPrefix("/requests").Subrouter()
-	requests.HandleFunc("/cart-info", requestHandler.GetCartInfo).Methods("GET")
-	requests.HandleFunc("", requestHandler.GetRequests).Methods("GET")
-	requests.HandleFunc("/{id}", requestHandler.GetRequest).Methods("GET")
-	requests.HandleFunc("/{id}", requestHandler.UpdateRequest).Methods("PUT")
-	requests.HandleFunc("/{id}/form", requestHandler.FormRequest).Methods("PUT")
-	requests.HandleFunc("/{id}/status", requestHandler.CompleteRequest).Methods("PUT")
-	requests.HandleFunc("/{id}/services", requestHandler.GetRequestServices).Methods("GET")
-	requests.HandleFunc("/{id}", requestHandler.DeleteRequest).Methods("DELETE")
+	// Домен расчёта
+	calculations := apiV1.PathPrefix("/calculations").Subrouter()
+	calculations.HandleFunc("/cart-info", calculationHandler.GetCartInfo).Methods("GET")
+	calculations.HandleFunc("", calculationHandler.GetCalculations).Methods("GET")
+	calculations.HandleFunc("/{id}", calculationHandler.GetCalculation).Methods("GET")
+	calculations.HandleFunc("/{id}", calculationHandler.UpdateCalculation).Methods("PUT")
+	calculations.HandleFunc("/{id}/form", calculationHandler.FormCalculation).Methods("PUT")
+	calculations.HandleFunc("/{id}/status", calculationHandler.CompleteCalculation).Methods("PUT")
+	calculations.HandleFunc("/{id}/materials", calculationHandler.GetCalculationMaterials).Methods("GET")
+	calculations.HandleFunc("/{id}", calculationHandler.DeleteCalculation).Methods("DELETE")
 
-	// Домен м-м (заявка-услуга)
-	requestServices := apiV1.PathPrefix("/requests/{requestId}/services").Subrouter()
-	requestServices.HandleFunc("/{serviceId}", requestServiceHandler.DeleteRequestService).Methods("DELETE")
-	requestServices.HandleFunc("/{serviceId}", requestServiceHandler.UpdateRequestService).Methods("PUT")
+	// Домен м-м (расчёт-материал)
+	materialCalculations := apiV1.PathPrefix("/calculations/{calculationId}/materials").Subrouter()
+	materialCalculations.HandleFunc("/{materialId}", materialCalculationHandler.DeleteMaterialCalculation).Methods("DELETE")
+	materialCalculations.HandleFunc("/{materialId}", materialCalculationHandler.UpdateMaterialCalculation).Methods("PUT")
 
 	// Домен пользователь
 	users := apiV1.PathPrefix("/users").Subrouter()
