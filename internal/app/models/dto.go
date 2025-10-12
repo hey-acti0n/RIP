@@ -62,10 +62,12 @@ type CalculationWithMaterials struct {
 	MaterialCalculations []repository.MaterialCalculation `json:"material_calculations"`
 }
 
-// UpdateCalculationRequest содержит данные для обновления расчёта
-type UpdateCalculationRequest struct {
-	Title       string `json:"title"`
-	Description string `json:"description"`
+// FormCalculationRequest содержит данные для формирования расчёта
+type FormCalculationRequest struct {
+	Title                      string   `json:"title" validate:"required"`
+	Description                string   `json:"description"`
+	OwnFrequency               *float64 `json:"own_frequency" validate:"required"`
+	IsolatedInstallationWeight *float64 `json:"isolated_installation_weight" validate:"required"`
 }
 
 // CartInfo содержит информацию о корзине
@@ -123,19 +125,21 @@ type MaterialResponse struct {
 
 // CalculationResponse представляет расчёт в API ответе
 type CalculationResponse struct {
-	ID             int        `json:"id"`
-	Status         string     `json:"status"`
-	Title          string     `json:"title"`
-	Description    string     `json:"description"`
-	CreatorID      int        `json:"creator_id"`
-	CreatorLogin   string     `json:"creator_login"`
-	ModeratorID    *int       `json:"moderator_id,omitempty"`
-	ModeratorLogin *string    `json:"moderator_login,omitempty"`
-	CreatedAt      time.Time  `json:"created_at"`
-	FormedAt       *time.Time `json:"formed_at,omitempty"`
-	CompletedAt    *time.Time `json:"completed_at,omitempty"`
-	TotalCost      *float64   `json:"total_cost,omitempty"`
-	DeliveryDate   *time.Time `json:"delivery_date,omitempty"`
+	ID                         int        `json:"id"`
+	Status                     string     `json:"status"`
+	Title                      string     `json:"title"`
+	Description                string     `json:"description"`
+	CreatorID                  int        `json:"creator_id"`
+	CreatorLogin               string     `json:"creator_login"`
+	ModeratorID                *int       `json:"moderator_id,omitempty"`
+	ModeratorLogin             *string    `json:"moderator_login,omitempty"`
+	CreatedAt                  time.Time  `json:"created_at"`
+	FormedAt                   *time.Time `json:"formed_at,omitempty"`
+	CompletedAt                *time.Time `json:"completed_at,omitempty"`
+	TotalCost                  *float64   `json:"total_cost,omitempty"`
+	DeliveryDate               *time.Time `json:"delivery_date,omitempty"`
+	OwnFrequency               *float64   `json:"own_frequency,omitempty"`
+	IsolatedInstallationWeight *float64   `json:"isolated_installation_weight,omitempty"`
 }
 
 // MaterialCalculationResponse представляет связь расчёт-материал в API ответе
@@ -184,19 +188,21 @@ func ConvertToMaterialResponse(material repository.DBMaterial) MaterialResponse 
 // ConvertToCalculationResponse конвертирует CalculationWithUsers в CalculationResponse
 func ConvertToCalculationResponse(calc CalculationWithUsers) CalculationResponse {
 	return CalculationResponse{
-		ID:             calc.ID,
-		Status:         calc.Status,
-		Title:          calc.Title,
-		Description:    calc.Description,
-		CreatorID:      calc.CreatorID,
-		CreatorLogin:   calc.CreatorLogin,
-		ModeratorID:    calc.ModeratorID,
-		ModeratorLogin: calc.ModeratorLogin,
-		CreatedAt:      calc.CreatedAt,
-		FormedAt:       calc.FormedAt,
-		CompletedAt:    calc.CompletedAt,
-		TotalCost:      calc.TotalCost,
-		DeliveryDate:   calc.DeliveryDate,
+		ID:                         calc.ID,
+		Status:                     calc.Status,
+		Title:                      calc.Title,
+		Description:                calc.Description,
+		CreatorID:                  calc.CreatorID,
+		CreatorLogin:               calc.CreatorLogin,
+		ModeratorID:                calc.ModeratorID,
+		ModeratorLogin:             calc.ModeratorLogin,
+		CreatedAt:                  calc.CreatedAt,
+		FormedAt:                   calc.FormedAt,
+		CompletedAt:                calc.CompletedAt,
+		TotalCost:                  calc.TotalCost,
+		DeliveryDate:               calc.DeliveryDate,
+		OwnFrequency:               calc.OwnFrequency,
+		IsolatedInstallationWeight: calc.IsolatedInstallationWeight,
 	}
 }
 

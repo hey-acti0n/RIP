@@ -1,8 +1,8 @@
 {
 	"info": {
 		"_postman_id": "ultrarezina-api-collection-fixed",
-		"name": "UltraRezina REST API (Fixed)",
-		"description": "Исправленная коллекция запросов для тестирования REST API системы UltraRezina.\n\n**Новая функциональность:**\n- При завершении расчёти (action=complete) API возвращает детальные результаты вычислений для каждого товара в корзине\n- Результаты включают: частоту вибрации, процент эффективности, стоимость единицы и общую стоимость\n- При отклонении расчёти (action=reject) возвращается пустой массив результатов вычислений\n\n**Структура ответа при завершении расчёти:**\n```json\n{\n  \"calculation_id\": 83,\n  \"status\": \"completed\",\n  \"total_cost\": 426,\n  \"delivery_date\": \"2025-10-30T16:18:29.032088+03:00\",\n  \"calculation_results\": [\n    {\n      \"material_id\": 2,\n      \"material_name\": \"Полиуретановый демпфер PU-450\",\n      \"quantity\": 1,\n      \"result_freq\": 5.032921210448704,\n      \"result_percent\": 90.85470823690686,\n      \"unit_cost\": 255,\n      \"total_cost\": 255\n    }\n  ],\n  \"message\": \"Заявка завершена\"\n}\n```",
+		"name": "UltraRezina REST API",
+		"description": "Коллекция запросов для тестирования REST API системы UltraRezina.",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"item": [
@@ -203,7 +203,7 @@
 					"response": []
 				},
 				{
-					"name": "Обновить расчёту",
+					"name": "Сформировать расчёту",
 					"request": {
 						"method": "PUT",
 						"header": [
@@ -214,28 +214,80 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"title\": \"Тестовая расчёта\",\n  \"description\": \"Описание тестовой расчёти\"\n}"
+							"raw": "{\n  \"title\": \"Тестовая расчёта\",\n  \"description\": \"Описание тестовой расчёти\",\n  \"own_frequency\": 50.0,\n  \"isolated_installation_weight\": 1000.0\n}"
 						},
-						"url": {
-							"raw": "{{base_url}}/api/v1/calculations/1",
-							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "calculations", "1"]
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "Сформировать расчёту",
-					"request": {
-						"method": "PUT",
-						"header": [],
 						"url": {
 							"raw": "{{base_url}}/api/v1/calculations/1/form",
 							"host": ["{{base_url}}"],
 							"path": ["api", "v1", "calculations", "1", "form"]
 						}
 					},
-					"response": []
+					"response": [
+						{
+							"name": "Успешное формирование расчёта",
+							"originalRequest": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"title\": \"Тестовая расчёта\",\n  \"description\": \"Описание тестовой расчёти\",\n  \"own_frequency\": 50.0,\n  \"isolated_installation_weight\": 1000.0\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/v1/calculations/1/form",
+									"host": ["{{base_url}}"],
+									"path": ["api", "v1", "calculations", "1", "form"]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"body": "{\n  \"message\": \"Расчёт сформирован\"\n}"
+						},
+						{
+							"name": "Ошибка - отсутствуют обязательные поля",
+							"originalRequest": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"title\": \"Тестовая расчёта\",\n  \"description\": \"Описание тестовой расчёти\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/v1/calculations/1/form",
+									"host": ["{{base_url}}"],
+									"path": ["api", "v1", "calculations", "1", "form"]
+								}
+							},
+							"status": "Bad Request",
+							"code": 400,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"body": "{\n  \"error\": \"Отсутствуют обязательные поля расчёта\"\n}"
+						}
+					]
 				},
 				{
 					"name": "Завершить расчёту",
@@ -320,6 +372,32 @@
 							],
 							"cookie": [],
 							"body": "{\n  \"calculation_id\": 84,\n  \"status\": \"rejected\",\n  \"total_cost\": 0,\n  \"delivery_date\": null,\n  \"calculation_results\": [],\n  \"message\": \"Заявка отклонена\"\n}"
+						},
+						{
+							"name": "Ошибка - отсутствуют обязательные поля для завершения",
+							"originalRequest": {
+								"method": "PUT",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/api/v1/calculations/1/status?action=complete",
+									"host": ["{{base_url}}"],
+									"path": ["api", "v1", "calculations", "1", "status"],
+									"query": [
+										{"key": "action", "value": "complete"}
+									]
+								}
+							},
+							"status": "Bad Request",
+							"code": 400,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"body": "{\n  \"error\": \"Отсутствуют обязательные поля для завершения расчёта (собственная частота и вес установки)\"\n}"
 						}
 					]
 				},
@@ -353,7 +431,7 @@
 							"response": []
 						},
 						{
-							"name": "2. Обновить расчёту",
+							"name": "2. Сформировать расчёту",
 							"request": {
 								"method": "PUT",
 								"header": [
@@ -364,21 +442,8 @@
 								],
 								"body": {
 									"mode": "raw",
-									"raw": "{\n  \"title\": \"Демонстрационная расчёта\",\n  \"description\": \"Заявка для демонстрации результатов вычислений\"\n}"
+									"raw": "{\n  \"title\": \"Демонстрационная расчёта\",\n  \"description\": \"Заявка для демонстрации результатов вычислений\",\n  \"own_frequency\": 50.0,\n  \"isolated_installation_weight\": 1000.0\n}"
 								},
-								"url": {
-									"raw": "{{base_url}}/api/v1/calculations/{{calculation_id}}",
-									"host": ["{{base_url}}"],
-									"path": ["api", "v1", "calculations", "{{calculation_id}}"]
-								}
-							},
-							"response": []
-						},
-						{
-							"name": "3. Сформировать расчёту",
-							"request": {
-								"method": "PUT",
-								"header": [],
 								"url": {
 									"raw": "{{base_url}}/api/v1/calculations/{{calculation_id}}/form",
 									"host": ["{{base_url}}"],
@@ -388,7 +453,7 @@
 							"response": []
 						},
 						{
-							"name": "4. Завершить расчёту с результатами вычислений",
+							"name": "3. Завершить расчёту с результатами вычислений",
 							"request": {
 								"method": "PUT",
 								"header": [],

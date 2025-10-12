@@ -31,17 +31,19 @@ type DBMaterial struct {
 func (DBMaterial) TableName() string { return "materials" }
 
 type Calculation struct {
-	ID           int        `gorm:"primaryKey;column:id" json:"id"`
-	Status       string     `gorm:"size:50;column:status" json:"status"`
-	Title        string     `gorm:"size:255;column:title" json:"title"`
-	Description  string     `gorm:"type:text;column:description" json:"description"`
-	CreatedAt    time.Time  `gorm:"autoCreateTime;column:created_at" json:"created_at"`
-	CreatorID    int        `gorm:"column:creator_id" json:"creator_id"`
-	FormedAt     *time.Time `gorm:"column:formed_at" json:"formed_at,omitempty"`
-	CompletedAt  *time.Time `gorm:"column:completed_at" json:"completed_at,omitempty"`
-	ModeratorID  *int       `gorm:"column:moderator_id" json:"moderator_id,omitempty"`
-	TotalCost    *float64   `gorm:"column:total_cost" json:"total_cost,omitempty"`
-	DeliveryDate *time.Time `gorm:"column:delivery_date" json:"delivery_date,omitempty"`
+	ID                         int        `gorm:"primaryKey;column:id" json:"id"`
+	Status                     string     `gorm:"size:50;column:status" json:"status"`
+	Title                      string     `gorm:"size:255;column:title" json:"title"`
+	Description                string     `gorm:"type:text;column:description" json:"description"`
+	CreatedAt                  time.Time  `gorm:"autoCreateTime;column:created_at" json:"created_at"`
+	CreatorID                  int        `gorm:"column:creator_id" json:"creator_id"`
+	FormedAt                   *time.Time `gorm:"column:formed_at" json:"formed_at,omitempty"`
+	CompletedAt                *time.Time `gorm:"column:completed_at" json:"completed_at,omitempty"`
+	ModeratorID                *int       `gorm:"column:moderator_id" json:"moderator_id,omitempty"`
+	TotalCost                  *float64   `gorm:"column:total_cost" json:"total_cost,omitempty"`
+	DeliveryDate               *time.Time `gorm:"column:delivery_date" json:"delivery_date,omitempty"`
+	OwnFrequency               *float64   `gorm:"column:own_frequency" json:"own_frequency,omitempty"`
+	IsolatedInstallationWeight *float64   `gorm:"column:isolated_installation_weight" json:"isolated_installation_weight,omitempty"`
 }
 
 func (Calculation) TableName() string { return "calculations" }

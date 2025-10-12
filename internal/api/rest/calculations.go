@@ -142,33 +142,6 @@ func (h *CalculationHandler) GetCalculationMaterials(w http.ResponseWriter, r *h
 	h.writeJSON(w, http.StatusOK, materialCalculationResponses)
 }
 
-// UpdateCalculation обновляет поля расчёта
-func (h *CalculationHandler) UpdateCalculation(w http.ResponseWriter, r *http.Request) {
-	id, err := h.parseID(r)
-	if err != nil {
-		h.writeError(w, http.StatusBadRequest, "Неверный ID расчёта")
-		return
-	}
-
-	var req models.UpdateCalculationRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.writeError(w, http.StatusBadRequest, "Неверный формат данных")
-		return
-	}
-
-	err = h.service.CalculationService.UpdateCalculation(r.Context(), id, req)
-	if err != nil {
-		if err == service.ErrCalculationNotFound {
-			h.writeError(w, http.StatusNotFound, "Расчёт не найден")
-			return
-		}
-		h.writeError(w, http.StatusInternalServerError, "Ошибка обновления расчёта")
-		return
-	}
-
-	h.writeJSON(w, http.StatusOK, map[string]string{"message": "Расчёт обновлён"})
-}
-
 // FormCalculation формирует расчёт
 func (h *CalculationHandler) FormCalculation(w http.ResponseWriter, r *http.Request) {
 	id, err := h.parseID(r)
@@ -177,7 +150,13 @@ func (h *CalculationHandler) FormCalculation(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	err = h.service.CalculationService.FormCalculation(r.Context(), id)
+	var req models.FormCalculationRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.writeError(w, http.StatusBadRequest, "Неверный формат данных")
+		return
+	}
+
+	err = h.service.CalculationService.FormCalculation(r.Context(), id, req)
 	if err != nil {
 		if err == service.ErrCalculationNotFound {
 			h.writeError(w, http.StatusNotFound, "Расчёт не найден")
@@ -222,6 +201,10 @@ func (h *CalculationHandler) CompleteCalculation(w http.ResponseWriter, r *http.
 		}
 		if err == service.ErrInvalidAction {
 			h.writeError(w, http.StatusBadRequest, "Неверное действие")
+			return
+		}
+		if err == service.ErrCalculationMissingRequiredFields {
+			h.writeError(w, http.StatusBadRequest, "Отсутствуют обязательные поля для завершения расчёта (собственная частота и вес установки)")
 			return
 		}
 		h.writeError(w, http.StatusInternalServerError, "Ошибка обработки расчёта")

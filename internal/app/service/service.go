@@ -361,36 +361,8 @@ func (s *CalculationService) GetCalculation(ctx context.Context, id int) (*model
 	}, nil
 }
 
-// UpdateCalculation обновляет поля расчёта
-func (s *CalculationService) UpdateCalculation(ctx context.Context, id int, req models.UpdateCalculationRequest) error {
-	var calculation repository.Calculation
-	if err := s.db.Where("id = ? AND status NOT IN (?)", id, []string{"deleted", "draft"}).First(&calculation).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ErrCalculationNotFound
-		}
-		return err
-	}
-
-	// Обновляем только переданные поля
-	updates := make(map[string]interface{})
-	if req.Title != "" {
-		updates["title"] = req.Title
-	}
-	if req.Description != "" {
-		updates["description"] = req.Description
-	}
-
-	if len(updates) > 0 {
-		if err := s.db.Model(&calculation).Updates(updates).Error; err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 // FormCalculation формирует расчёт (переводит из черновика в сформированный)
-func (s *CalculationService) FormCalculation(ctx context.Context, id int) error {
+func (s *CalculationService) FormCalculation(ctx context.Context, id int, req models.FormCalculationRequest) error {
 	userID := s.GetCurrentUserID()
 
 	var calculation repository.Calculation
@@ -401,18 +373,42 @@ func (s *CalculationService) FormCalculation(ctx context.Context, id int) error 
 		return err
 	}
 
-	// Проверяем обязательные поля
-	if calculation.Title == "" {
-		return ErrCalculationMissingRequiredFields
+	// Обновляем поля расчёта
+	now := time.Now()
+	updates := map[string]interface{}{
+		"status":                       "completed",
+		"formed_at":                    &now,
+		"title":                        req.Title,
+		"description":                  req.Description,
+		"own_frequency":                req.OwnFrequency,
+		"isolated_installation_weight": req.IsolatedInstallationWeight,
 	}
 
-	// Обновляем статус и дату формирования
-	now := time.Now()
-	if err := s.db.Model(&calculation).Updates(map[string]interface{}{
-		"status":    "completed",
-		"formed_at": &now,
-	}).Error; err != nil {
+	if err := s.db.Model(&calculation).Updates(updates).Error; err != nil {
 		return err
+	}
+
+	// Получаем все материалы из корзины для создания записей в м-м таблице
+	var materialCalculations []repository.MaterialCalculation
+	if err := s.db.Preload("Material").Where("calculation_id = ?", id).Find(&materialCalculations).Error; err != nil {
+		return err
+	}
+
+	// Для каждого материала создаем расчет виброизоляции
+	for _, mc := range materialCalculations {
+		if mc.Material.Density != nil && mc.Material.Thickness != nil && req.OwnFrequency != nil && req.IsolatedInstallationWeight != nil {
+			// Формула расчета виброизоляции
+			resultFreq := s.calculateVibrationIsolation(mc.Material, *req.OwnFrequency, *req.IsolatedInstallationWeight)
+			resultPercent := s.calculateIsolationPercent(resultFreq, *req.OwnFrequency)
+
+			// Обновляем результаты в м-м таблице
+			if err := s.db.Model(&mc).Updates(map[string]interface{}{
+				"result_freq":    resultFreq,
+				"result_percent": resultPercent,
+			}).Error; err != nil {
+				return err
+			}
+		}
 	}
 
 	return nil
@@ -468,16 +464,28 @@ func (s *CalculationService) CompleteCalculation(ctx context.Context, id int, ac
 		// Создаем результаты вычислений
 		var calculationResults []models.CalculationResult
 
+		// Проверяем наличие обязательных параметров для расчета
+		if calculation.OwnFrequency == nil {
+			return nil, ErrCalculationMissingRequiredFields
+		}
+		if calculation.IsolatedInstallationWeight == nil {
+			return nil, ErrCalculationMissingRequiredFields
+		}
+
+		ownFreq := *calculation.OwnFrequency
+		weight := *calculation.IsolatedInstallationWeight
+
 		// Обновляем результаты расчета в м-м таблице и собираем результаты
 		for _, mc := range materialCalculations {
 			var resultFreq, resultPercent float64
 			var unitCost float64
 
 			if mc.Material.Density != nil && mc.Material.Thickness != nil {
-				// Простая формула расчета (пример)
-				resultFreq = math.Sqrt(1000.0/float64(mc.Quantity)) / (2 * math.Pi)
-				resultPercent = 100.0 * (1 - (resultFreq / (50.0 + resultFreq))) // 50 Hz - частота вибрации
+				// Используем улучшенные формулы расчета виброизоляции
+				resultFreq = s.calculateVibrationIsolation(mc.Material, ownFreq, weight)
+				resultPercent = s.calculateIsolationPercent(resultFreq, ownFreq)
 
+				// Обновляем результаты в базе данных
 				if err := s.db.Model(&mc).Updates(map[string]interface{}{
 					"result_freq":    resultFreq,
 					"result_percent": resultPercent,
@@ -507,7 +515,7 @@ func (s *CalculationService) CompleteCalculation(ctx context.Context, id int, ac
 			TotalCost:          totalCost,
 			DeliveryDate:       &deliveryDate,
 			CalculationResults: calculationResults,
-			Message:            "Расчёт завершён",
+			Message:            "Заявка завершена",
 		}
 	} else {
 		// Для отклонения расчёта
@@ -517,7 +525,7 @@ func (s *CalculationService) CompleteCalculation(ctx context.Context, id int, ac
 			TotalCost:          0,
 			DeliveryDate:       nil,
 			CalculationResults: []models.CalculationResult{},
-			Message:            "Расчёт отклонён",
+			Message:            "Заявка отклонена",
 		}
 	}
 
@@ -569,6 +577,46 @@ func (s *CalculationService) calculateUnitCost(material repository.DBMaterial) f
 		basePrice += *material.Thickness * 2.0
 	}
 	return basePrice
+}
+
+// calculateVibrationIsolation рассчитывает частоту виброизоляции
+func (s *CalculationService) calculateVibrationIsolation(material repository.DBMaterial, ownFreq, weight float64) float64 {
+	if material.Density == nil || material.Thickness == nil {
+		return 0.0
+	}
+
+	// Формула расчета собственной частоты виброизолятора
+	// f = (1/(2*π)) * sqrt(k/m), где k - жесткость, m - масса
+	// Для виброизоляционных материалов: k = E*A/h, где E - модуль упругости, A - площадь, h - толщина
+
+	// Упрощенная формула для виброизоляции
+	// Используем плотность и толщину материала
+	stiffness := (*material.Density * 1000) / (*material.Thickness / 1000) // Упрощенный расчет жесткости
+	mass := weight                                                         // Масса изолируемой установки
+
+	if mass <= 0 {
+		return 0.0
+	}
+
+	// Собственная частота виброизолятора
+	freq := (1.0 / (2.0 * math.Pi)) * math.Sqrt(stiffness/mass)
+
+	return freq
+}
+
+// calculateIsolationPercent рассчитывает процент виброизоляции
+func (s *CalculationService) calculateIsolationPercent(isolationFreq, excitationFreq float64) float64 {
+	if excitationFreq <= 0 || isolationFreq <= 0 {
+		return 0.0
+	}
+
+	// Формула для расчета эффективности виброизоляции
+	// η = 1 - 1/(1 + (f_excitation/f_isolation)^2)
+	frequencyRatio := excitationFreq / isolationFreq
+	efficiency := 1.0 - (1.0 / (1.0 + frequencyRatio*frequencyRatio))
+
+	// Конвертируем в проценты
+	return efficiency * 100.0
 }
 
 // MaterialCalculationService содержит методы для работы со связью расчёт-материал

@@ -46,7 +46,6 @@ func (r *Router) SetupRoutes() *mux.Router {
 	calculations.HandleFunc("/cart-info", calculationHandler.GetCartInfo).Methods("GET")
 	calculations.HandleFunc("", calculationHandler.GetCalculations).Methods("GET")
 	calculations.HandleFunc("/{id}", calculationHandler.GetCalculation).Methods("GET")
-	calculations.HandleFunc("/{id}", calculationHandler.UpdateCalculation).Methods("PUT")
 	calculations.HandleFunc("/{id}/form", calculationHandler.FormCalculation).Methods("PUT")
 	calculations.HandleFunc("/{id}/status", calculationHandler.CompleteCalculation).Methods("PUT")
 	calculations.HandleFunc("/{id}/materials", calculationHandler.GetCalculationMaterials).Methods("GET")
