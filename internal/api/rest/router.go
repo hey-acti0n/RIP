@@ -2,20 +2,45 @@ package rest
 
 import (
 	"net/http"
+	"time"
 
+	"rip/internal/app/middleware"
+	"rip/internal/app/models"
+	"rip/internal/app/redis"
 	"rip/internal/app/service"
 
 	"github.com/gorilla/mux"
+	httpSwagger "github.com/swaggo/http-swagger"
 )
 
 // Router настраивает маршруты REST API
 type Router struct {
-	service *service.Service
+	service        *service.Service
+	authMiddleware *middleware.AuthMiddleware
 }
 
 // NewRouter создает новый роутер
 func NewRouter(svc *service.Service) *Router {
-	return &Router{service: svc}
+	// Создаем JWT сервис
+	jwtService := service.NewJWTService("your-secret-key", 24*time.Hour, 7*24*time.Hour)
+
+	// Создаем Redis клиент
+	redisClient, err := redis.NewClient("localhost:6379", "password", 0)
+	if err != nil {
+		// Если Redis недоступен, продолжаем без него
+		redisClient = nil
+	}
+
+	// Устанавливаем Redis клиент в сервис
+	svc.SetRedisClient(redisClient)
+
+	// Создаем middleware аутентификации
+	authMiddleware := middleware.NewAuthMiddleware(jwtService, redisClient)
+
+	return &Router{
+		service:        svc,
+		authMiddleware: authMiddleware,
+	}
 }
 
 // SetupRoutes настраивает все маршруты API
@@ -27,6 +52,9 @@ func (r *Router) SetupRoutes() *mux.Router {
 	calculationHandler := NewCalculationHandler(r.service)
 	materialCalculationHandler := NewMaterialCalculationHandler(r.service)
 	userHandler := NewUserHandler(r.service)
+
+	// Swagger документация
+	router.PathPrefix("/swagger/").Handler(httpSwagger.WrapHandler)
 
 	// API v1
 	apiV1 := router.PathPrefix("/api/v1").Subrouter()
@@ -43,14 +71,14 @@ func (r *Router) SetupRoutes() *mux.Router {
 
 	// Домен расчёта
 	calculations := apiV1.PathPrefix("/calculations").Subrouter()
-	calculations.HandleFunc("/cart-info", calculationHandler.GetCartInfo).Methods("GET")
-	calculations.HandleFunc("", calculationHandler.GetCalculations).Methods("GET")
-	calculations.HandleFunc("/{id}", calculationHandler.GetCalculation).Methods("GET")
-	calculations.HandleFunc("/{id}", calculationHandler.UpdateCalculation).Methods("PUT")
-	calculations.HandleFunc("/{id}/form", calculationHandler.FormCalculation).Methods("PUT")
-	calculations.HandleFunc("/{id}/status", calculationHandler.CompleteCalculation).Methods("PUT")
-	calculations.HandleFunc("/{id}/materials", calculationHandler.GetCalculationMaterials).Methods("GET")
-	calculations.HandleFunc("/{id}", calculationHandler.DeleteCalculation).Methods("DELETE")
+	calculations.HandleFunc("/cart-info", r.authMiddleware.OptionalAuth(calculationHandler.GetCartInfo)).Methods("GET")
+	calculations.HandleFunc("", r.authMiddleware.OptionalAuth(calculationHandler.GetCalculations)).Methods("GET")
+	calculations.HandleFunc("/{id}", r.authMiddleware.OptionalAuth(calculationHandler.GetCalculation)).Methods("GET")
+	calculations.HandleFunc("/{id}", r.authMiddleware.RequireAuth(calculationHandler.UpdateCalculation)).Methods("PUT")
+	calculations.HandleFunc("/{id}/form", r.authMiddleware.RequireAuth(calculationHandler.FormCalculation)).Methods("PUT")
+	calculations.HandleFunc("/{id}/status", r.authMiddleware.RequireAuth(r.authMiddleware.RequireRole(models.ModeratorRole)(calculationHandler.CompleteCalculation))).Methods("PUT")
+	calculations.HandleFunc("/{id}/materials", r.authMiddleware.OptionalAuth(calculationHandler.GetCalculationMaterials)).Methods("GET")
+	calculations.HandleFunc("/{id}", r.authMiddleware.RequireAuth(r.authMiddleware.RequireRole(models.ModeratorRole)(calculationHandler.DeleteCalculation))).Methods("DELETE")
 
 	// Домен м-м (расчёт-материал)
 	materialCalculations := apiV1.PathPrefix("/calculations/{calculationId}/materials").Subrouter()
@@ -61,9 +89,9 @@ func (r *Router) SetupRoutes() *mux.Router {
 	users := apiV1.PathPrefix("/users").Subrouter()
 	users.HandleFunc("/register", userHandler.Register).Methods("POST")
 	users.HandleFunc("/login", userHandler.Login).Methods("POST")
-	users.HandleFunc("/profile", userHandler.GetProfile).Methods("GET")
-	users.HandleFunc("/profile", userHandler.UpdateProfile).Methods("PUT")
-	users.HandleFunc("/logout", userHandler.Logout).Methods("POST")
+	users.HandleFunc("/profile", r.authMiddleware.RequireAuth(userHandler.GetProfile)).Methods("GET")
+	users.HandleFunc("/profile", r.authMiddleware.RequireAuth(userHandler.UpdateProfile)).Methods("PUT")
+	users.HandleFunc("/logout", r.authMiddleware.RequireAuth(userHandler.Logout)).Methods("POST")
 
 	// Middleware для CORS
 	router.Use(corsMiddleware)

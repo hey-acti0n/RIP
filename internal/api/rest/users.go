@@ -3,12 +3,24 @@ package rest
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"rip/internal/app/models"
 	"rip/internal/app/service"
 )
 
 // Register регистрирует нового пользователя
+// @Summary Регистрация пользователя
+// @Description Создает нового пользователя в системе
+// @Tags users
+// @Accept json
+// @Produce json
+// @Param request body models.RegisterRequest true "Данные для регистрации"
+// @Success 201 {object} models.UserResponse "Пользователь успешно создан"
+// @Failure 400 {object} map[string]string "Неверные данные"
+// @Failure 409 {object} map[string]string "Пользователь уже существует"
+// @Failure 500 {object} map[string]string "Внутренняя ошибка сервера"
+// @Router /users/register [post]
 func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req models.RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -53,6 +65,17 @@ func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 }
 
 // Login аутентифицирует пользователя
+// @Summary Аутентификация пользователя
+// @Description Аутентифицирует пользователя и возвращает JWT токен
+// @Tags users
+// @Accept json
+// @Produce json
+// @Param request body models.LoginRequest true "Данные для входа"
+// @Success 200 {object} map[string]interface{} "Успешная аутентификация"
+// @Failure 400 {object} map[string]string "Неверные данные"
+// @Failure 401 {object} map[string]string "Неверные учетные данные"
+// @Failure 500 {object} map[string]string "Внутренняя ошибка сервера"
+// @Router /users/login [post]
 func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req models.LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -92,10 +115,23 @@ func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetProfile возвращает профиль пользователя
+// @Summary Получить профиль пользователя
+// @Description Возвращает информацию о профиле текущего пользователя
+// @Tags users
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} models.UserResponse "Профиль пользователя"
+// @Failure 401 {object} map[string]string "Пользователь не аутентифицирован"
+// @Failure 404 {object} map[string]string "Пользователь не найден"
+// @Failure 500 {object} map[string]string "Внутренняя ошибка сервера"
+// @Router /users/profile [get]
 func (h *UserHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
-	// TODO: Извлечь userID из токена авторизации
-	// Пока используем заглушку
-	userID := h.service.GetCurrentUserID()
+	userID, ok := r.Context().Value("user_id").(int)
+	if !ok {
+		h.writeError(w, http.StatusUnauthorized, "Пользователь не аутентифицирован")
+		return
+	}
 
 	user, err := h.service.UserService.GetProfile(r.Context(), userID)
 	if err != nil {
@@ -112,10 +148,25 @@ func (h *UserHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 }
 
 // UpdateProfile обновляет профиль пользователя
+// @Summary Обновить профиль пользователя
+// @Description Обновляет информацию профиля текущего пользователя
+// @Tags users
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body models.UpdateProfileRequest true "Данные для обновления"
+// @Success 200 {object} models.UserResponse "Профиль обновлен"
+// @Failure 400 {object} map[string]string "Неверные данные"
+// @Failure 401 {object} map[string]string "Пользователь не аутентифицирован"
+// @Failure 404 {object} map[string]string "Пользователь не найден"
+// @Failure 500 {object} map[string]string "Внутренняя ошибка сервера"
+// @Router /users/profile [put]
 func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
-	// TODO: Извлечь userID из токена авторизации
-	// Пока используем заглушку
-	userID := h.service.GetCurrentUserID()
+	userID, ok := r.Context().Value("user_id").(int)
+	if !ok {
+		h.writeError(w, http.StatusUnauthorized, "Пользователь не аутентифицирован")
+		return
+	}
 
 	var req models.UpdateProfileRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -138,8 +189,31 @@ func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 }
 
 // Logout деавторизует пользователя
+// @Summary Выход из системы
+// @Description Деавторизует пользователя, добавляя токен в черный список
+// @Tags users
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} map[string]string "Выход выполнен успешно"
+// @Failure 401 {object} map[string]string "Пользователь не аутентифицирован"
+// @Failure 500 {object} map[string]string "Внутренняя ошибка сервера"
+// @Router /users/logout [post]
 func (h *UserHandler) Logout(w http.ResponseWriter, r *http.Request) {
-	// TODO: Инвалидировать токен
-	// Пока возвращаем успешный ответ
+	token, ok := r.Context().Value("token").(string)
+	if !ok {
+		h.writeError(w, http.StatusUnauthorized, "Пользователь не аутентифицирован")
+		return
+	}
+
+	// Добавляем токен в черный список
+	if h.service.RedisClient != nil {
+		err := h.service.RedisClient.AddToBlacklist(r.Context(), token, 24*time.Hour)
+		if err != nil {
+			h.writeError(w, http.StatusInternalServerError, "Ошибка при выходе из системы")
+			return
+		}
+	}
+
 	h.writeJSON(w, http.StatusOK, map[string]string{"message": "Выход выполнен успешно"})
 }

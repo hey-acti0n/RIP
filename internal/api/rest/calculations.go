@@ -9,6 +9,14 @@ import (
 )
 
 // GetCartInfo возвращает информацию о корзине
+// @Summary Получить информацию о корзине
+// @Description Возвращает общую информацию о корзине (количество товаров, общая стоимость)
+// @Tags calculations
+// @Accept json
+// @Produce json
+// @Success 200 {object} models.CartInfo "Информация о корзине"
+// @Failure 500 {object} map[string]string "Внутренняя ошибка сервера"
+// @Router /calculations/cart-info [get]
 func (h *CalculationHandler) GetCartInfo(w http.ResponseWriter, r *http.Request) {
 	cartInfo, err := h.service.CalculationService.GetCartInfo(r.Context())
 	if err != nil {
@@ -20,6 +28,19 @@ func (h *CalculationHandler) GetCartInfo(w http.ResponseWriter, r *http.Request)
 }
 
 // GetCalculations возвращает список расчётов с фильтрацией
+// @Summary Получить список расчетов
+// @Description Возвращает список расчетов с возможностью фильтрации. Для аутентифицированных пользователей показывает только их расчеты, для модераторов - все расчеты
+// @Tags calculations
+// @Accept json
+// @Produce json
+// @Param status query string false "Статус расчета"
+// @Param formed_from query string false "Дата начала (YYYY-MM-DD)"
+// @Param formed_to query string false "Дата окончания (YYYY-MM-DD)"
+// @Param page query int false "Номер страницы" default(1)
+// @Param limit query int false "Количество записей на странице" default(10)
+// @Success 200 {object} PaginationResponse "Список расчетов"
+// @Failure 500 {object} map[string]string "Внутренняя ошибка сервера"
+// @Router /calculations [get]
 func (h *CalculationHandler) GetCalculations(w http.ResponseWriter, r *http.Request) {
 	// Парсим параметры фильтрации
 	filters := models.CalculationFilters{
@@ -37,6 +58,13 @@ func (h *CalculationHandler) GetCalculations(w http.ResponseWriter, r *http.Requ
 	page, limit := h.parsePagination(r)
 	filters.Page = page
 	filters.Limit = limit
+
+	// Проверяем аутентификацию и устанавливаем фильтр по пользователю
+	userID, isAuthenticated := r.Context().Value("user_id").(int)
+	if isAuthenticated {
+		// Если пользователь аутентифицирован, показываем только его расчеты
+		filters.CreatorID = &userID
+	}
 
 	// Получаем данные
 	calculations, total, err := h.service.CalculationService.GetCalculations(r.Context(), filters)
@@ -66,6 +94,17 @@ func (h *CalculationHandler) GetCalculations(w http.ResponseWriter, r *http.Requ
 }
 
 // GetCalculation возвращает один расчёт с материалами
+// @Summary Получить расчет по ID
+// @Description Возвращает информацию о конкретном расчете по его идентификатору
+// @Tags calculations
+// @Accept json
+// @Produce json
+// @Param id path int true "ID расчета"
+// @Success 200 {object} models.CalculationResponse "Информация о расчете"
+// @Failure 400 {object} map[string]string "Неверный ID"
+// @Failure 404 {object} map[string]string "Расчет не найден"
+// @Failure 500 {object} map[string]string "Внутренняя ошибка сервера"
+// @Router /calculations/{id} [get]
 func (h *CalculationHandler) GetCalculation(w http.ResponseWriter, r *http.Request) {
 	id, err := h.parseID(r)
 	if err != nil {
@@ -116,6 +155,17 @@ func (h *CalculationHandler) GetCalculation(w http.ResponseWriter, r *http.Reque
 }
 
 // GetCalculationMaterials возвращает список материалов в расчёте
+// @Summary Получить материалы расчета
+// @Description Возвращает список материалов, связанных с конкретным расчетом
+// @Tags calculations
+// @Accept json
+// @Produce json
+// @Param id path int true "ID расчета"
+// @Success 200 {array} models.MaterialCalculationResponse "Список материалов расчета"
+// @Failure 400 {object} map[string]string "Неверный ID"
+// @Failure 404 {object} map[string]string "Расчет не найден"
+// @Failure 500 {object} map[string]string "Внутренняя ошибка сервера"
+// @Router /calculations/{id}/materials [get]
 func (h *CalculationHandler) GetCalculationMaterials(w http.ResponseWriter, r *http.Request) {
 	id, err := h.parseID(r)
 	if err != nil {
@@ -143,6 +193,20 @@ func (h *CalculationHandler) GetCalculationMaterials(w http.ResponseWriter, r *h
 }
 
 // UpdateCalculation обновляет поля расчёта
+// @Summary Обновить расчет
+// @Description Обновляет информацию о существующем расчете
+// @Tags calculations
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "ID расчета"
+// @Param request body models.UpdateCalculationRequest true "Данные для обновления"
+// @Success 200 {object} models.CalculationResponse "Расчет обновлен"
+// @Failure 400 {object} map[string]string "Неверные данные"
+// @Failure 401 {object} map[string]string "Пользователь не аутентифицирован"
+// @Failure 404 {object} map[string]string "Расчет не найден"
+// @Failure 500 {object} map[string]string "Внутренняя ошибка сервера"
+// @Router /calculations/{id} [put]
 func (h *CalculationHandler) UpdateCalculation(w http.ResponseWriter, r *http.Request) {
 	id, err := h.parseID(r)
 	if err != nil {
@@ -170,6 +234,19 @@ func (h *CalculationHandler) UpdateCalculation(w http.ResponseWriter, r *http.Re
 }
 
 // FormCalculation формирует расчёт
+// @Summary Сформировать расчет
+// @Description Формирует расчет для дальнейшего завершения или отклонения
+// @Tags calculations
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "ID расчета"
+// @Success 200 {object} map[string]string "Расчет сформирован"
+// @Failure 400 {object} map[string]string "Неверные данные"
+// @Failure 401 {object} map[string]string "Пользователь не аутентифицирован"
+// @Failure 404 {object} map[string]string "Расчет не найден"
+// @Failure 500 {object} map[string]string "Внутренняя ошибка сервера"
+// @Router /calculations/{id}/form [put]
 func (h *CalculationHandler) FormCalculation(w http.ResponseWriter, r *http.Request) {
 	id, err := h.parseID(r)
 	if err != nil {
@@ -195,6 +272,21 @@ func (h *CalculationHandler) FormCalculation(w http.ResponseWriter, r *http.Requ
 }
 
 // CompleteCalculation завершает или отклоняет расчёт
+// @Summary Завершить или отклонить расчет
+// @Description Завершает или отклоняет расчет. Доступно только модераторам
+// @Tags calculations
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "ID расчета"
+// @Param action query string true "Действие: complete или reject"
+// @Success 200 {object} models.CompleteCalculationResponse "Результат операции"
+// @Failure 400 {object} map[string]string "Неверные данные"
+// @Failure 401 {object} map[string]string "Пользователь не аутентифицирован"
+// @Failure 403 {object} map[string]string "Недостаточно прав"
+// @Failure 404 {object} map[string]string "Расчет не найден"
+// @Failure 500 {object} map[string]string "Внутренняя ошибка сервера"
+// @Router /calculations/{id}/status [put]
 func (h *CalculationHandler) CompleteCalculation(w http.ResponseWriter, r *http.Request) {
 	id, err := h.parseID(r)
 	if err != nil {
@@ -214,7 +306,14 @@ func (h *CalculationHandler) CompleteCalculation(w http.ResponseWriter, r *http.
 		return
 	}
 
-	response, err := h.service.CalculationService.CompleteCalculation(r.Context(), id, action)
+	// Получаем ID модератора из контекста
+	moderatorID, ok := r.Context().Value("user_id").(int)
+	if !ok {
+		h.writeError(w, http.StatusUnauthorized, "Модератор не аутентифицирован")
+		return
+	}
+
+	response, err := h.service.CalculationService.CompleteCalculation(r.Context(), id, action, moderatorID)
 	if err != nil {
 		if err == service.ErrCalculationNotFound {
 			h.writeError(w, http.StatusNotFound, "Расчёт не найден")
@@ -232,6 +331,20 @@ func (h *CalculationHandler) CompleteCalculation(w http.ResponseWriter, r *http.
 }
 
 // DeleteCalculation удаляет расчёт
+// @Summary Удалить расчет
+// @Description Удаляет расчет из системы. Доступно только модераторам
+// @Tags calculations
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "ID расчета"
+// @Success 204 "Расчет удален"
+// @Failure 400 {object} map[string]string "Неверный ID"
+// @Failure 401 {object} map[string]string "Пользователь не аутентифицирован"
+// @Failure 403 {object} map[string]string "Недостаточно прав"
+// @Failure 404 {object} map[string]string "Расчет не найден"
+// @Failure 500 {object} map[string]string "Внутренняя ошибка сервера"
+// @Router /calculations/{id} [delete]
 func (h *CalculationHandler) DeleteCalculation(w http.ResponseWriter, r *http.Request) {
 	id, err := h.parseID(r)
 	if err != nil {

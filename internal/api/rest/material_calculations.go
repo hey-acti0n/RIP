@@ -12,6 +12,18 @@ import (
 )
 
 // DeleteMaterialCalculation удаляет материал из расчёта
+// @Summary Удалить материал из расчета
+// @Description Удаляет материал из конкретного расчета
+// @Tags material-calculations
+// @Accept json
+// @Produce json
+// @Param calculationId path int true "ID расчета"
+// @Param materialId path int true "ID материала"
+// @Success 200 {object} map[string]string "Материал удален из расчета"
+// @Failure 400 {object} map[string]string "Неверные ID"
+// @Failure 404 {object} map[string]string "Расчет не найден"
+// @Failure 500 {object} map[string]string "Внутренняя ошибка сервера"
+// @Router /calculations/{calculationId}/materials/{materialId} [delete]
 func (h *MaterialCalculationHandler) DeleteMaterialCalculation(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 
@@ -41,6 +53,19 @@ func (h *MaterialCalculationHandler) DeleteMaterialCalculation(w http.ResponseWr
 }
 
 // UpdateMaterialCalculation обновляет связь расчёт-материал
+// @Summary Обновить связь расчета и материала
+// @Description Обновляет параметры связи между расчетом и материалом
+// @Tags material-calculations
+// @Accept json
+// @Produce json
+// @Param calculationId path int true "ID расчета"
+// @Param materialId path int true "ID материала"
+// @Param request body models.UpdateMaterialCalculationRequest true "Данные для обновления"
+// @Success 200 {object} models.MaterialCalculationResponse "Связь обновлена"
+// @Failure 400 {object} map[string]string "Неверные данные"
+// @Failure 404 {object} map[string]string "Расчет не найден"
+// @Failure 500 {object} map[string]string "Внутренняя ошибка сервера"
+// @Router /calculations/{calculationId}/materials/{materialId} [put]
 func (h *MaterialCalculationHandler) UpdateMaterialCalculation(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 

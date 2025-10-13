@@ -1,0 +1,1192 @@
+basePath: /api/v1
+definitions:
+  models.CalculationResponse:
+    properties:
+      completed_at:
+        type: string
+      created_at:
+        type: string
+      creator_id:
+        type: integer
+      creator_login:
+        type: string
+      delivery_date:
+        type: string
+      description:
+        type: string
+      formed_at:
+        type: string
+      id:
+        type: integer
+      moderator_id:
+        type: integer
+      moderator_login:
+        type: string
+      status:
+        type: string
+      title:
+        type: string
+      total_cost:
+        type: number
+    type: object
+  models.CalculationResult:
+    properties:
+      material_id:
+        type: integer
+      material_name:
+        type: string
+      quantity:
+        type: integer
+      result_freq:
+        type: number
+      result_percent:
+        type: number
+      total_cost:
+        type: number
+      unit_cost:
+        type: number
+    type: object
+  models.CartInfo:
+    properties:
+      calculation_id:
+        type: integer
+      item_count:
+        type: integer
+    type: object
+  models.CompleteCalculationResponse:
+    properties:
+      calculation_id:
+        type: integer
+      calculation_results:
+        items:
+          $ref: '#/definitions/models.CalculationResult'
+        type: array
+      delivery_date:
+        type: string
+      message:
+        type: string
+      status:
+        type: string
+      total_cost:
+        type: number
+    type: object
+  models.CreateMaterialRequest:
+    properties:
+      density:
+        type: number
+      description:
+        type: string
+      image_url:
+        type: string
+      material:
+        type: string
+      name:
+        type: string
+      thickness:
+        type: number
+    required:
+    - name
+    type: object
+  models.LoginRequest:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  models.MaterialCalculationResponse:
+    properties:
+      calculation_id:
+        type: integer
+      comment:
+        type: string
+      created_at:
+        type: string
+      is_main:
+        type: boolean
+      material:
+        $ref: '#/definitions/models.MaterialResponse'
+      material_id:
+        type: integer
+      quantity:
+        type: integer
+      result_freq:
+        type: number
+      result_percent:
+        type: number
+      sort_order:
+        type: integer
+    type: object
+  models.MaterialResponse:
+    properties:
+      created_at:
+        type: string
+      density:
+        type: number
+      description:
+        type: string
+      id:
+        type: integer
+      image_url:
+        type: string
+      is_active:
+        type: boolean
+      material:
+        type: string
+      name:
+        type: string
+      thickness:
+        type: number
+    type: object
+  models.RegisterRequest:
+    properties:
+      email:
+        type: string
+      full_name:
+        type: string
+      password:
+        minLength: 6
+        type: string
+      username:
+        type: string
+    required:
+    - email
+    - full_name
+    - password
+    - username
+    type: object
+  models.UpdateCalculationRequest:
+    properties:
+      description:
+        type: string
+      title:
+        type: string
+    type: object
+  models.UpdateMaterialCalculationRequest:
+    properties:
+      comment:
+        type: string
+      is_main:
+        type: boolean
+      quantity:
+        type: integer
+      sort_order:
+        type: integer
+    type: object
+  models.UpdateMaterialRequest:
+    properties:
+      density:
+        type: number
+      description:
+        type: string
+      image_url:
+        type: string
+      material:
+        type: string
+      name:
+        type: string
+      thickness:
+        type: number
+    type: object
+  models.UpdateProfileRequest:
+    properties:
+      email:
+        type: string
+      full_name:
+        type: string
+    type: object
+  models.UserResponse:
+    properties:
+      email:
+        type: string
+      full_name:
+        type: string
+      id:
+        type: integer
+      is_active:
+        type: boolean
+      username:
+        type: string
+    type: object
+  rest.Pagination:
+    properties:
+      limit:
+        type: integer
+      page:
+        type: integer
+      total:
+        type: integer
+      total_pages:
+        type: integer
+    type: object
+  rest.PaginationResponse:
+    properties:
+      data: {}
+      pagination:
+        $ref: '#/definitions/rest.Pagination'
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@swagger.io
+    name: API Support
+    url: http://www.swagger.io/support
+  description: API для системы расчета резинотехнических изделий
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  termsOfService: http://swagger.io/terms/
+  title: UltraRezina API
+  version: "1.0"
+paths:
+  /calculations:
+    get:
+      consumes:
+      - application/json
+      description: Возвращает список расчетов с возможностью фильтрации. Для аутентифицированных
+        пользователей показывает только их расчеты, для модераторов - все расчеты
+      parameters:
+      - description: Статус расчета
+        in: query
+        name: status
+        type: string
+      - description: Дата начала (YYYY-MM-DD)
+        in: query
+        name: formed_from
+        type: string
+      - description: Дата окончания (YYYY-MM-DD)
+        in: query
+        name: formed_to
+        type: string
+      - default: 1
+        description: Номер страницы
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Количество записей на странице
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Список расчетов
+          schema:
+            $ref: '#/definitions/rest.PaginationResponse'
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Получить список расчетов
+      tags:
+      - calculations
+  /calculations/{calculationId}/materials/{materialId}:
+    delete:
+      consumes:
+      - application/json
+      description: Удаляет материал из конкретного расчета
+      parameters:
+      - description: ID расчета
+        in: path
+        name: calculationId
+        required: true
+        type: integer
+      - description: ID материала
+        in: path
+        name: materialId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Материал удален из расчета
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Неверные ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Расчет не найден
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Удалить материал из расчета
+      tags:
+      - material-calculations
+    put:
+      consumes:
+      - application/json
+      description: Обновляет параметры связи между расчетом и материалом
+      parameters:
+      - description: ID расчета
+        in: path
+        name: calculationId
+        required: true
+        type: integer
+      - description: ID материала
+        in: path
+        name: materialId
+        required: true
+        type: integer
+      - description: Данные для обновления
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateMaterialCalculationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Связь обновлена
+          schema:
+            $ref: '#/definitions/models.MaterialCalculationResponse'
+        "400":
+          description: Неверные данные
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Расчет не найден
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Обновить связь расчета и материала
+      tags:
+      - material-calculations
+  /calculations/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Удаляет расчет из системы. Доступно только модераторам
+      parameters:
+      - description: ID расчета
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Расчет удален
+        "400":
+          description: Неверный ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Пользователь не аутентифицирован
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Недостаточно прав
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Расчет не найден
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Удалить расчет
+      tags:
+      - calculations
+    get:
+      consumes:
+      - application/json
+      description: Возвращает информацию о конкретном расчете по его идентификатору
+      parameters:
+      - description: ID расчета
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Информация о расчете
+          schema:
+            $ref: '#/definitions/models.CalculationResponse'
+        "400":
+          description: Неверный ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Расчет не найден
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Получить расчет по ID
+      tags:
+      - calculations
+    put:
+      consumes:
+      - application/json
+      description: Обновляет информацию о существующем расчете
+      parameters:
+      - description: ID расчета
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Данные для обновления
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateCalculationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Расчет обновлен
+          schema:
+            $ref: '#/definitions/models.CalculationResponse'
+        "400":
+          description: Неверные данные
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Пользователь не аутентифицирован
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Расчет не найден
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Обновить расчет
+      tags:
+      - calculations
+  /calculations/{id}/form:
+    put:
+      consumes:
+      - application/json
+      description: Формирует расчет для дальнейшего завершения или отклонения
+      parameters:
+      - description: ID расчета
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Расчет сформирован
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Неверные данные
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Пользователь не аутентифицирован
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Расчет не найден
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Сформировать расчет
+      tags:
+      - calculations
+  /calculations/{id}/materials:
+    get:
+      consumes:
+      - application/json
+      description: Возвращает список материалов, связанных с конкретным расчетом
+      parameters:
+      - description: ID расчета
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Список материалов расчета
+          schema:
+            items:
+              $ref: '#/definitions/models.MaterialCalculationResponse'
+            type: array
+        "400":
+          description: Неверный ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Расчет не найден
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Получить материалы расчета
+      tags:
+      - calculations
+  /calculations/{id}/status:
+    put:
+      consumes:
+      - application/json
+      description: Завершает или отклоняет расчет. Доступно только модераторам
+      parameters:
+      - description: ID расчета
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 'Действие: complete или reject'
+        in: query
+        name: action
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Результат операции
+          schema:
+            $ref: '#/definitions/models.CompleteCalculationResponse'
+        "400":
+          description: Неверные данные
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Пользователь не аутентифицирован
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Недостаточно прав
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Расчет не найден
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Завершить или отклонить расчет
+      tags:
+      - calculations
+  /calculations/cart-info:
+    get:
+      consumes:
+      - application/json
+      description: Возвращает общую информацию о корзине (количество товаров, общая
+        стоимость)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Информация о корзине
+          schema:
+            $ref: '#/definitions/models.CartInfo'
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Получить информацию о корзине
+      tags:
+      - calculations
+  /materials:
+    get:
+      consumes:
+      - application/json
+      description: Возвращает список материалов с возможностью фильтрации по различным
+        параметрам
+      parameters:
+      - description: Поиск по названию
+        in: query
+        name: name
+        type: string
+      - description: Фильтр по материалу
+        in: query
+        name: material
+        type: string
+      - description: Минимальная толщина
+        in: query
+        name: thickness_min
+        type: number
+      - description: Максимальная толщина
+        in: query
+        name: thickness_max
+        type: number
+      - description: Минимальная плотность
+        in: query
+        name: density_min
+        type: number
+      - description: Максимальная плотность
+        in: query
+        name: density_max
+        type: number
+      - default: 1
+        description: Номер страницы
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Количество записей на странице
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Список материалов
+          schema:
+            $ref: '#/definitions/rest.PaginationResponse'
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Получить список материалов
+      tags:
+      - materials
+    post:
+      consumes:
+      - application/json
+      description: Создает новый материал в системе
+      parameters:
+      - description: Данные для создания материала
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateMaterialRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Материал создан
+          schema:
+            $ref: '#/definitions/models.MaterialResponse'
+        "400":
+          description: Неверные данные
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Создать новый материал
+      tags:
+      - materials
+  /materials/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Удаляет материал из системы
+      parameters:
+      - description: ID материала
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Материал удален
+        "400":
+          description: Неверный ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Материал не найден
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Удалить материал
+      tags:
+      - materials
+    get:
+      consumes:
+      - application/json
+      description: Возвращает информацию о конкретном материале по его идентификатору
+      parameters:
+      - description: ID материала
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Информация о материале
+          schema:
+            $ref: '#/definitions/models.MaterialResponse'
+        "400":
+          description: Неверный ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Материал не найден
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Получить материал по ID
+      tags:
+      - materials
+    put:
+      consumes:
+      - application/json
+      description: Обновляет информацию о существующем материале
+      parameters:
+      - description: ID материала
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Данные для обновления
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateMaterialRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Материал обновлен
+          schema:
+            $ref: '#/definitions/models.MaterialResponse'
+        "400":
+          description: Неверные данные
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Материал не найден
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Обновить материал
+      tags:
+      - materials
+  /materials/{id}/add-to-cart:
+    post:
+      consumes:
+      - application/json
+      description: Добавляет материал в корзину для последующего расчета
+      parameters:
+      - description: ID материала
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Материал добавлен в корзину
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Неверный ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Материал не найден
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Добавить материал в корзину
+      tags:
+      - materials
+  /materials/{id}/image:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Загружает изображение для материала
+      parameters:
+      - description: ID материала
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Изображение материала
+        in: formData
+        name: image
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Изображение загружено
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Неверные данные
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Материал не найден
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Загрузить изображение материала
+      tags:
+      - materials
+  /users/login:
+    post:
+      consumes:
+      - application/json
+      description: Аутентифицирует пользователя и возвращает JWT токен
+      parameters:
+      - description: Данные для входа
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Успешная аутентификация
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Неверные данные
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Неверные учетные данные
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Аутентификация пользователя
+      tags:
+      - users
+  /users/logout:
+    post:
+      consumes:
+      - application/json
+      description: Деавторизует пользователя, добавляя токен в черный список
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Выход выполнен успешно
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Пользователь не аутентифицирован
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Выход из системы
+      tags:
+      - users
+  /users/profile:
+    get:
+      consumes:
+      - application/json
+      description: Возвращает информацию о профиле текущего пользователя
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Профиль пользователя
+          schema:
+            $ref: '#/definitions/models.UserResponse'
+        "401":
+          description: Пользователь не аутентифицирован
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Пользователь не найден
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Получить профиль пользователя
+      tags:
+      - users
+    put:
+      consumes:
+      - application/json
+      description: Обновляет информацию профиля текущего пользователя
+      parameters:
+      - description: Данные для обновления
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateProfileRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Профиль обновлен
+          schema:
+            $ref: '#/definitions/models.UserResponse'
+        "400":
+          description: Неверные данные
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Пользователь не аутентифицирован
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Пользователь не найден
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Обновить профиль пользователя
+      tags:
+      - users
+  /users/register:
+    post:
+      consumes:
+      - application/json
+      description: Создает нового пользователя в системе
+      parameters:
+      - description: Данные для регистрации
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Пользователь успешно создан
+          schema:
+            $ref: '#/definitions/models.UserResponse'
+        "400":
+          description: Неверные данные
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Пользователь уже существует
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Регистрация пользователя
+      tags:
+      - users
+securityDefinitions:
+  BearerAuth:
+    description: 'JWT токен для аутентификации. Используйте формат: "Bearer <token>"'
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

@@ -67,6 +67,7 @@ type User struct {
 	Email     string    `gorm:"size:100;uniqueIndex;not null;column:email" json:"email"`
 	Password  string    `gorm:"size:255;not null;column:password" json:"-"`
 	FullName  string    `gorm:"size:100;column:full_name" json:"full_name"`
+	Role      int       `gorm:"column:role;default:0" json:"role"` // 0=user, 1=moderator, 2=admin
 	IsActive  bool      `gorm:"column:is_active;default:true" json:"is_active"`
 	CreatedAt time.Time `gorm:"autoCreateTime;column:created_at" json:"created_at"`
 }
@@ -91,7 +92,7 @@ func WriteJSON(w http.ResponseWriter, v any) {
 
 // InitDB establishes connection using env DATABASE_DSN or docker-compose defaults
 func InitDB() *gorm.DB {
-	dsn := Getenv("DATABASE_DSN", "host=localhost user=postgres password=root dbname=rip port=5432 sslmode=disable TimeZone=UTC")
+	dsn := Getenv("DATABASE_DSN", "host=localhost user=root password=root dbname=RIP port=5432 sslmode=disable TimeZone=UTC")
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		panic(err)

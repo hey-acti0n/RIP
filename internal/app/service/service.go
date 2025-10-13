@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"rip/internal/app/models"
+	"rip/internal/app/redis"
 	"rip/internal/app/repository"
 
 	"gorm.io/gorm"
@@ -16,6 +17,7 @@ import (
 // Service содержит бизнес-логику приложения
 type Service struct {
 	db                         *gorm.DB
+	RedisClient                *redis.Client
 	MaterialService            *MaterialService
 	CalculationService         *CalculationService
 	MaterialCalculationService *MaterialCalculationService
@@ -30,6 +32,11 @@ func NewService(db *gorm.DB) *Service {
 	svc.MaterialCalculationService = NewMaterialCalculationService(svc)
 	svc.UserService = NewUserService(svc)
 	return svc
+}
+
+// SetRedisClient устанавливает Redis клиент
+func (s *Service) SetRedisClient(redisClient *redis.Client) {
+	s.RedisClient = redisClient
 }
 
 // GetCurrentUserID возвращает ID текущего пользователя (заглушка)
@@ -278,6 +285,9 @@ func (s *CalculationService) GetCalculations(ctx context.Context, filters models
 	if filters.Status != "" {
 		query = query.Where("status = ?", filters.Status)
 	}
+	if filters.CreatorID != nil {
+		query = query.Where("creator_id = ?", *filters.CreatorID)
+	}
 	if filters.FormedFrom != nil {
 		query = query.Where("formed_at >= ?", *filters.FormedFrom)
 	}
@@ -419,8 +429,7 @@ func (s *CalculationService) FormCalculation(ctx context.Context, id int) error 
 }
 
 // CompleteCalculation завершает или отклоняет расчёт модератором
-func (s *CalculationService) CompleteCalculation(ctx context.Context, id int, action string) (*models.CompleteCalculationResponse, error) {
-	moderatorID := s.GetCurrentModeratorID()
+func (s *CalculationService) CompleteCalculation(ctx context.Context, id int, action string, moderatorID int) (*models.CompleteCalculationResponse, error) {
 
 	var calculation repository.Calculation
 	if err := s.db.Where("id = ? AND status = ?", id, "completed").First(&calculation).Error; err != nil {
@@ -657,14 +666,18 @@ func (s *UserService) Register(ctx context.Context, req models.RegisterRequest) 
 		return nil, ErrUserAlreadyExists
 	}
 
-	// Хешируем пароль (в реальном приложении используйте bcrypt)
-	hashedPassword := fmt.Sprintf("hashed_%s", req.Password)
+	// Хешируем пароль
+	hashedPassword, err := HashPassword(req.Password)
+	if err != nil {
+		return nil, fmt.Errorf("failed to hash password: %w", err)
+	}
 
 	user := repository.User{
 		Username: req.Username,
 		Email:    req.Email,
 		Password: hashedPassword,
 		FullName: req.FullName,
+		Role:     0, // UserRole
 		IsActive: true,
 	}
 
@@ -685,17 +698,21 @@ func (s *UserService) Login(ctx context.Context, req models.LoginRequest) (*mode
 		return nil, err
 	}
 
-	// Проверяем пароль (в реальном приложении используйте bcrypt)
-	if user.Password != fmt.Sprintf("hashed_%s", req.Password) {
+	// Проверяем пароль
+	if !CheckPasswordHash(req.Password, user.Password) {
 		return nil, ErrInvalidCredentials
 	}
 
-	// Генерируем токен (в реальном приложении используйте JWT)
-	token := fmt.Sprintf("token_%d_%d", user.ID, time.Now().Unix())
+	// Генерируем токены
+	jwtService := NewJWTService("your-secret-key", 24*time.Hour, 7*24*time.Hour)
+	tokens, err := jwtService.GenerateTokens(&user)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate tokens: %w", err)
+	}
 
 	return &models.LoginResponse{
 		User:  user,
-		Token: token,
+		Token: tokens.AccessToken,
 	}, nil
 }
 

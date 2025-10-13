@@ -41,6 +41,7 @@ type UpdateMaterialRequest struct {
 // CalculationFilters содержит фильтры для поиска расчётов
 type CalculationFilters struct {
 	Status     string     `json:"status"`
+	CreatorID  *int       `json:"creator_id,omitempty"`
 	FormedFrom *time.Time `json:"formed_from"`
 	FormedTo   *time.Time `json:"formed_to"`
 	Page       int        `json:"page"`
