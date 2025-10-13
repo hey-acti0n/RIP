@@ -118,7 +118,7 @@ func MountORMRoutes(db *gorm.DB) {
 			return
 		}
 		minioHost := Getenv("MINIO_PUBLIC_ENDPOINT", "http://localhost:9000")
-		assetsBase := fmt.Sprintf("%s/images/icons", minioHost)
+		assetsBase := fmt.Sprintf("%s/images", minioHost)
 		var itemsWithURLs []map[string]any
 		for _, item := range items {
 			m := map[string]any{
