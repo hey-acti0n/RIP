@@ -26,6 +26,11 @@ const docTemplate = `{
     "paths": {
         "/calculations": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Возвращает список расчетов с возможностью фильтрации. Для аутентифицированных пользователей показывает только их расчеты, для модераторов - все расчеты",
                 "consumes": [
                     "application/json"
@@ -92,7 +97,12 @@ const docTemplate = `{
         },
         "/calculations/cart-info": {
             "get": {
-                "description": "Возвращает общую информацию о корзине (количество товаров, общая стоимость)",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Возвращает общую информацию о корзине (количество товаров, общая стоимость). Для аутентифицированных пользователей показывает их корзину, для гостей - пустую корзину",
                 "consumes": [
                     "application/json"
                 ],
@@ -266,6 +276,11 @@ const docTemplate = `{
         },
         "/calculations/{id}": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Возвращает информацию о конкретном расчете по его идентификатору",
                 "consumes": [
                     "application/json"
@@ -295,86 +310,6 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Неверный ID",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Расчет не найден",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Внутренняя ошибка сервера",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            },
-            "put": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Обновляет информацию о существующем расчете",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "calculations"
-                ],
-                "summary": "Обновить расчет",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID расчета",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Данные для обновления",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/models.UpdateCalculationRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Расчет обновлен",
-                        "schema": {
-                            "$ref": "#/definitions/models.CalculationResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Неверные данные",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Пользователь не аутентифицирован",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -487,7 +422,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Формирует расчет для дальнейшего завершения или отклонения",
+                "description": "Формирует расчет с обязательными параметрами (вес установки и собственная частота) и возвращает результаты расчетов для каждого материала",
                 "consumes": [
                     "application/json"
                 ],
@@ -505,16 +440,22 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "description": "Данные для формирования расчета",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.FormCalculationRequest"
+                        }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Расчет сформирован",
+                        "description": "Результаты формирования расчета",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/models.FormCalculationResponse"
                         }
                     },
                     "400": {
@@ -558,6 +499,11 @@ const docTemplate = `{
         },
         "/calculations/{id}/materials": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Возвращает список материалов, связанных с конкретным расчетом",
                 "consumes": [
                     "application/json"
@@ -1022,6 +968,11 @@ const docTemplate = `{
         },
         "/materials/{id}/add-to-cart": {
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Добавляет материал в корзину для последующего расчета",
                 "consumes": [
                     "application/json"
@@ -1586,6 +1537,47 @@ const docTemplate = `{
                 }
             }
         },
+        "models.FormCalculationRequest": {
+            "type": "object",
+            "required": [
+                "installation_weight",
+                "natural_frequency"
+            ],
+            "properties": {
+                "installation_weight": {
+                    "type": "number"
+                },
+                "natural_frequency": {
+                    "type": "number"
+                }
+            }
+        },
+        "models.FormCalculationResponse": {
+            "type": "object",
+            "properties": {
+                "calculation_id": {
+                    "type": "integer"
+                },
+                "calculation_results": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.MaterialCalculationResult"
+                    }
+                },
+                "installation_weight": {
+                    "type": "number"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "natural_frequency": {
+                    "type": "number"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
         "models.LoginRequest": {
             "type": "object",
             "required": [
@@ -1633,6 +1625,32 @@ const docTemplate = `{
                 },
                 "sort_order": {
                     "type": "integer"
+                }
+            }
+        },
+        "models.MaterialCalculationResult": {
+            "type": "object",
+            "properties": {
+                "material_id": {
+                    "type": "integer"
+                },
+                "material_name": {
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": "integer"
+                },
+                "result_freq": {
+                    "type": "number"
+                },
+                "result_percent": {
+                    "type": "number"
+                },
+                "total_cost": {
+                    "type": "number"
+                },
+                "unit_cost": {
+                    "type": "number"
                 }
             }
         },
@@ -1688,17 +1706,6 @@ const docTemplate = `{
                     "minLength": 6
                 },
                 "username": {
-                    "type": "string"
-                }
-            }
-        },
-        "models.UpdateCalculationRequest": {
-            "type": "object",
-            "properties": {
-                "description": {
-                    "type": "string"
-                },
-                "title": {
                     "type": "string"
                 }
             }

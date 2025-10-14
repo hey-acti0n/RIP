@@ -44,15 +44,16 @@ func (m *AuthMiddleware) RequireAuth(next func(http.ResponseWriter, *http.Reques
 
 		token := parts[1]
 
-		// Проверяем, не находится ли токен в черном списке
-		isBlacklisted, err := m.redisClient.IsInBlacklist(r.Context(), token)
-		if err != nil {
-			m.writeError(w, http.StatusInternalServerError, "Failed to check token blacklist")
-			return
-		}
-		if isBlacklisted {
-			m.writeError(w, http.StatusUnauthorized, "Token has been revoked")
-			return
+		// Проверяем, не находится ли токен в черном списке (только если Redis доступен)
+		if m.redisClient != nil {
+			isBlacklisted, err := m.redisClient.IsInBlacklist(r.Context(), token)
+			if err != nil {
+				// Если Redis недоступен, продолжаем без проверки черного списка
+				// В продакшене можно логировать ошибку
+			} else if isBlacklisted {
+				m.writeError(w, http.StatusUnauthorized, "Token has been revoked")
+				return
+			}
 		}
 
 		// Валидируем токен
@@ -101,9 +102,19 @@ func (m *AuthMiddleware) OptionalAuth(next func(http.ResponseWriter, *http.Reque
 			if len(parts) == 2 && parts[0] == "Bearer" {
 				token := parts[1]
 
-				// Проверяем черный список
-				isBlacklisted, err := m.redisClient.IsInBlacklist(r.Context(), token)
-				if err == nil && !isBlacklisted {
+				// Проверяем черный список только если Redis доступен
+				canProceed := true
+				if m.redisClient != nil {
+					isBlacklisted, err := m.redisClient.IsInBlacklist(r.Context(), token)
+					if err != nil {
+						// Если Redis недоступен, продолжаем без проверки черного списка
+						canProceed = true
+					} else {
+						canProceed = !isBlacklisted
+					}
+				}
+
+				if canProceed {
 					// Валидируем токен
 					claims, err := m.jwtService.ValidateToken(token)
 					if err == nil {

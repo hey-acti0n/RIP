@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strconv"
 	"time"
 
 	"rip/internal/app/models"
@@ -39,9 +40,46 @@ func (s *Service) SetRedisClient(redisClient *redis.Client) {
 	s.RedisClient = redisClient
 }
 
-// GetCurrentUserID возвращает ID текущего пользователя (заглушка)
+// GetCurrentUserID возвращает ID текущего пользователя из контекста
 func (s *Service) GetCurrentUserID() int {
-	return 1 // Константа согласно ТЗ
+	// Это заглушка, в реальном приложении ID должен браться из контекста
+	// Для тестирования возвращаем 1
+	return 1
+}
+
+// GetCurrentUserIDFromContext возвращает ID пользователя из контекста
+func GetCurrentUserIDFromContext(ctx context.Context) (int, bool) {
+	// Пробуем разные типы
+	if userID, ok := ctx.Value("user_id").(int); ok {
+		fmt.Printf("DEBUG: GetCurrentUserIDFromContext - получили int: %d\n", userID)
+		return userID, true
+	}
+
+	// Пробуем float64 (может быть из JSON)
+	if userID, ok := ctx.Value("user_id").(float64); ok {
+		fmt.Printf("DEBUG: GetCurrentUserIDFromContext - получили float64: %f\n", userID)
+		return int(userID), true
+	}
+
+	// Пробуем interface{} и преобразуем
+	if val := ctx.Value("user_id"); val != nil {
+		fmt.Printf("DEBUG: GetCurrentUserIDFromContext - получили interface{}: %v (тип: %T)\n", val, val)
+		switch v := val.(type) {
+		case int:
+			return v, true
+		case float64:
+			return int(v), true
+		case int64:
+			return int(v), true
+		case string:
+			if id, err := strconv.Atoi(v); err == nil {
+				return id, true
+			}
+		}
+	}
+
+	fmt.Printf("DEBUG: GetCurrentUserIDFromContext - не удалось получить user_id\n")
+	return 0, false
 }
 
 // GetCurrentModeratorID возвращает ID текущего модератора (заглушка)
@@ -191,7 +229,23 @@ func (s *MaterialService) DeleteMaterial(ctx context.Context, id int) error {
 
 // AddMaterialToCart добавляет материал в корзину (создает расчёт-черновик)
 func (s *MaterialService) AddMaterialToCart(ctx context.Context, materialID int) (*repository.Calculation, error) {
-	userID := s.GetCurrentUserID()
+	userID, ok := GetCurrentUserIDFromContext(ctx)
+	fmt.Printf("DEBUG: AddMaterialToCart - userID: %d, ok: %v\n", userID, ok)
+
+	if !ok {
+		// Если пользователь не аутентифицирован, создаем расчет с creator_id = 0 (гость)
+		userID = 0
+		fmt.Printf("DEBUG: AddMaterialToCart - пользователь не аутентифицирован, userID = 0\n")
+	}
+
+	// Для отладки
+	if userID == 0 {
+		// Пытаемся получить ID из контекста еще раз
+		if id, exists := ctx.Value("user_id").(int); exists {
+			userID = id
+			fmt.Printf("DEBUG: AddMaterialToCart - получен userID из контекста: %d\n", userID)
+		}
+	}
 
 	// Проверяем существование материала
 	var material repository.DBMaterial
@@ -204,10 +258,12 @@ func (s *MaterialService) AddMaterialToCart(ctx context.Context, materialID int)
 
 	// Ищем существующий расчёт-черновик пользователя
 	var calculation repository.Calculation
+	fmt.Printf("DEBUG: AddMaterialToCart - ищем расчет для userID: %d\n", userID)
 	err := s.db.Where("creator_id = ? AND status = ?", userID, "pending").First(&calculation).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			// Создаем новый расчёт-черновик
+			fmt.Printf("DEBUG: AddMaterialToCart - создаем новый расчет для userID: %d\n", userID)
 			calculation = repository.Calculation{
 				CreatorID: userID,
 				Status:    "pending",
@@ -215,9 +271,12 @@ func (s *MaterialService) AddMaterialToCart(ctx context.Context, materialID int)
 			if err := s.db.Create(&calculation).Error; err != nil {
 				return nil, err
 			}
+			fmt.Printf("DEBUG: AddMaterialToCart - создан расчет ID: %d для userID: %d\n", calculation.ID, userID)
 		} else {
 			return nil, err
 		}
+	} else {
+		fmt.Printf("DEBUG: AddMaterialToCart - найден существующий расчет ID: %d для userID: %d\n", calculation.ID, userID)
 	}
 
 	// Добавляем материал в расчёт
@@ -252,21 +311,33 @@ func NewCalculationService(svc *Service) *CalculationService {
 
 // GetCartInfo возвращает информацию о корзине текущего пользователя
 func (s *CalculationService) GetCartInfo(ctx context.Context) (*models.CartInfo, error) {
-	userID := s.GetCurrentUserID()
+	userID, ok := GetCurrentUserIDFromContext(ctx)
+	if !ok {
+		// Если пользователь не аутентифицирован, возвращаем пустую корзину
+		fmt.Printf("DEBUG: GetCartInfo - пользователь не аутентифицирован\n")
+		return &models.CartInfo{CalculationID: 0, ItemCount: 0}, nil
+	}
+
+	fmt.Printf("DEBUG: GetCartInfo - userID: %d\n", userID)
 
 	var calculation repository.Calculation
 	err := s.db.Where("creator_id = ? AND status = ?", userID, "pending").First(&calculation).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
+			fmt.Printf("DEBUG: GetCartInfo - расчет не найден для userID: %d\n", userID)
 			return &models.CartInfo{CalculationID: 0, ItemCount: 0}, nil
 		}
 		return nil, err
 	}
 
+	fmt.Printf("DEBUG: GetCartInfo - найден расчет ID: %d для userID: %d\n", calculation.ID, userID)
+
 	var count int64
 	if err := s.db.Model(&repository.MaterialCalculation{}).Where("calculation_id = ?", calculation.ID).Count(&count).Error; err != nil {
 		return nil, err
 	}
+
+	fmt.Printf("DEBUG: GetCartInfo - количество товаров: %d\n", count)
 
 	return &models.CartInfo{
 		CalculationID: calculation.ID,
@@ -371,65 +442,124 @@ func (s *CalculationService) GetCalculation(ctx context.Context, id int) (*model
 	}, nil
 }
 
-// UpdateCalculation обновляет поля расчёта
-func (s *CalculationService) UpdateCalculation(ctx context.Context, id int, req models.UpdateCalculationRequest) error {
-	var calculation repository.Calculation
-	if err := s.db.Where("id = ? AND status NOT IN (?)", id, []string{"deleted", "draft"}).First(&calculation).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ErrCalculationNotFound
-		}
-		return err
-	}
-
-	// Обновляем только переданные поля
-	updates := make(map[string]interface{})
-	if req.Title != "" {
-		updates["title"] = req.Title
-	}
-	if req.Description != "" {
-		updates["description"] = req.Description
-	}
-
-	if len(updates) > 0 {
-		if err := s.db.Model(&calculation).Updates(updates).Error; err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 // FormCalculation формирует расчёт (переводит из черновика в сформированный)
-func (s *CalculationService) FormCalculation(ctx context.Context, id int) error {
-	userID := s.GetCurrentUserID()
+func (s *CalculationService) FormCalculation(ctx context.Context, id int, req models.FormCalculationRequest) (*models.FormCalculationResponse, error) {
+	userID, ok := GetCurrentUserIDFromContext(ctx)
+	if !ok {
+		return nil, errors.New("user not authenticated")
+	}
 
 	var calculation repository.Calculation
 	if err := s.db.Where("id = ? AND creator_id = ? AND status = ?", id, userID, "pending").First(&calculation).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ErrCalculationNotFound
+			return nil, ErrCalculationNotFound
 		}
-		return err
+		return nil, err
 	}
 
-	// Проверяем обязательные поля
-	if calculation.Title == "" {
-		return ErrCalculationMissingRequiredFields
-	}
-
-	// Обновляем статус и дату формирования
+	// Обновляем расчет с переданными параметрами
 	now := time.Now()
-	if err := s.db.Model(&calculation).Updates(map[string]interface{}{
-		"status":    "completed",
-		"formed_at": &now,
-	}).Error; err != nil {
-		return err
+	updates := map[string]interface{}{
+		"status":              "completed",
+		"formed_at":           &now,
+		"installation_weight": req.InstallationWeight,
+		"natural_frequency":   req.NaturalFrequency,
 	}
 
-	return nil
+	// Если заголовок пустой, генерируем автоматически
+	if calculation.Title == "" {
+		updates["title"] = fmt.Sprintf("Расчёт #%d от %s", id, now.Format("2006-01-02"))
+	}
+
+	// Если описание пустое, добавляем стандартное
+	if calculation.Description == "" {
+		updates["description"] = "Сформированный расчёт"
+	}
+
+	// Обновляем расчет
+	if err := s.db.Model(&calculation).Updates(updates).Error; err != nil {
+		return nil, err
+	}
+
+	// Получаем материалы расчета
+	var materialCalculations []repository.MaterialCalculation
+	if err := s.db.Where("calculation_id = ?", id).Find(&materialCalculations).Error; err != nil {
+		return nil, err
+	}
+
+	// Выполняем расчеты для каждого материала
+	var calculationResults []models.MaterialCalculationResult
+	totalCost := 0.0
+
+	for _, mc := range materialCalculations {
+		// Получаем данные материала
+		var material repository.DBMaterial
+		if err := s.db.Where("id = ?", mc.MaterialID).First(&material).Error; err != nil {
+			continue
+		}
+
+		// Выполняем расчет (упрощенная формула)
+		resultFreq := s.calculateFrequency(&req.InstallationWeight, &req.NaturalFrequency, material.Density, material.Thickness)
+		resultPercent := s.calculateEfficiency(resultFreq, req.NaturalFrequency)
+
+		// Стоимость (упрощенная формула)
+		unitCost := *material.Density * *material.Thickness * 10 // Примерная формула
+		totalMaterialCost := unitCost * float64(mc.Quantity)
+		totalCost += totalMaterialCost
+
+		calculationResults = append(calculationResults, models.MaterialCalculationResult{
+			MaterialID:    material.ID,
+			MaterialName:  material.Name,
+			Quantity:      mc.Quantity,
+			ResultFreq:    resultFreq,
+			ResultPercent: resultPercent,
+			UnitCost:      unitCost,
+			TotalCost:     totalMaterialCost,
+		})
+	}
+
+	// Обновляем общую стоимость
+	s.db.Model(&calculation).Update("total_cost", totalCost)
+
+	return &models.FormCalculationResponse{
+		CalculationID:      id,
+		Status:             "completed",
+		InstallationWeight: req.InstallationWeight,
+		NaturalFrequency:   req.NaturalFrequency,
+		CalculationResults: calculationResults,
+		Message:            "Расчёт успешно сформирован",
+	}, nil
+}
+
+// calculateFrequency рассчитывает частоту вибрации
+func (s *CalculationService) calculateFrequency(installationWeight, naturalFreq, density, thickness *float64) float64 {
+	if density == nil || thickness == nil || installationWeight == nil || naturalFreq == nil {
+		return 0
+	}
+	// Упрощенная формула расчета частоты
+	return *naturalFreq * (1 + (*density**thickness) / *installationWeight)
+}
+
+// calculateEfficiency рассчитывает процент эффективности
+func (s *CalculationService) calculateEfficiency(resultFreq, naturalFreq float64) float64 {
+	// Упрощенная формула расчета эффективности
+	efficiency := (1 - math.Abs(resultFreq-naturalFreq)/naturalFreq) * 100
+	if efficiency < 0 {
+		return 0
+	}
+	if efficiency > 100 {
+		return 100
+	}
+	return efficiency
 }
 
 // CompleteCalculation завершает или отклоняет расчёт модератором
 func (s *CalculationService) CompleteCalculation(ctx context.Context, id int, action string, moderatorID int) (*models.CompleteCalculationResponse, error) {
+	// Проверяем, что модератор аутентифицирован
+	_, ok := GetCurrentUserIDFromContext(ctx)
+	if !ok {
+		return nil, errors.New("moderator not authenticated")
+	}
 
 	var calculation repository.Calculation
 	if err := s.db.Where("id = ? AND status = ?", id, "completed").First(&calculation).Error; err != nil {
@@ -539,7 +669,10 @@ func (s *CalculationService) CompleteCalculation(ctx context.Context, id int, ac
 
 // DeleteCalculation удаляет расчёт (логическое удаление)
 func (s *CalculationService) DeleteCalculation(ctx context.Context, id int) error {
-	userID := s.GetCurrentUserID()
+	userID, ok := GetCurrentUserIDFromContext(ctx)
+	if !ok {
+		return errors.New("user not authenticated")
+	}
 
 	var calculation repository.Calculation
 	if err := s.db.Where("id = ? AND creator_id = ? AND status IN (?)", id, userID, []string{"pending", "completed", "rejected"}).First(&calculation).Error; err != nil {
@@ -592,7 +725,10 @@ func NewMaterialCalculationService(svc *Service) *MaterialCalculationService {
 
 // DeleteMaterialCalculation удаляет материал из расчёта
 func (s *MaterialCalculationService) DeleteMaterialCalculation(ctx context.Context, calculationID, materialID int) error {
-	userID := s.GetCurrentUserID()
+	userID, ok := GetCurrentUserIDFromContext(ctx)
+	if !ok {
+		return errors.New("user not authenticated")
+	}
 
 	// Проверяем права доступа
 	var calculation repository.Calculation
@@ -613,7 +749,10 @@ func (s *MaterialCalculationService) DeleteMaterialCalculation(ctx context.Conte
 
 // UpdateMaterialCalculation обновляет связь расчёт-материал
 func (s *MaterialCalculationService) UpdateMaterialCalculation(ctx context.Context, calculationID, materialID int, req models.UpdateMaterialCalculationRequest) error {
-	userID := s.GetCurrentUserID()
+	userID, ok := GetCurrentUserIDFromContext(ctx)
+	if !ok {
+		return errors.New("user not authenticated")
+	}
 
 	// Проверяем права доступа
 	var calculation repository.Calculation

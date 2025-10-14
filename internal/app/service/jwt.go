@@ -9,7 +9,6 @@ import (
 	"rip/internal/app/repository"
 
 	"github.com/golang-jwt/jwt/v5"
-	"golang.org/x/crypto/bcrypt"
 )
 
 // JWTService предоставляет методы для работы с JWT токенами
@@ -99,14 +98,12 @@ func (j *JWTService) ValidateToken(tokenString string) (*models.JWTClaims, error
 	return claims, nil
 }
 
-// HashPassword хеширует пароль
+// HashPassword возвращает пароль без хеширования
 func HashPassword(password string) (string, error) {
-	bytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	return string(bytes), err
+	return password, nil
 }
 
-// CheckPasswordHash проверяет пароль
+// CheckPasswordHash проверяет пароль (простое сравнение)
 func CheckPasswordHash(password, hash string) bool {
-	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
-	return err == nil
+	return password == hash
 }

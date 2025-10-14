@@ -63,10 +63,31 @@ type CalculationWithMaterials struct {
 	MaterialCalculations []repository.MaterialCalculation `json:"material_calculations"`
 }
 
-// UpdateCalculationRequest содержит данные для обновления расчёта
-type UpdateCalculationRequest struct {
-	Title       string `json:"title"`
-	Description string `json:"description"`
+// FormCalculationRequest содержит данные для формирования расчёта
+type FormCalculationRequest struct {
+	InstallationWeight float64 `json:"installation_weight" binding:"required"`
+	NaturalFrequency   float64 `json:"natural_frequency" binding:"required"`
+}
+
+// FormCalculationResponse содержит результаты формирования расчёта
+type FormCalculationResponse struct {
+	CalculationID      int                         `json:"calculation_id"`
+	Status             string                      `json:"status"`
+	InstallationWeight float64                     `json:"installation_weight"`
+	NaturalFrequency   float64                     `json:"natural_frequency"`
+	CalculationResults []MaterialCalculationResult `json:"calculation_results"`
+	Message            string                      `json:"message"`
+}
+
+// MaterialCalculationResult содержит результат расчёта для одного материала
+type MaterialCalculationResult struct {
+	MaterialID    int     `json:"material_id"`
+	MaterialName  string  `json:"material_name"`
+	Quantity      int     `json:"quantity"`
+	ResultFreq    float64 `json:"result_freq"`
+	ResultPercent float64 `json:"result_percent"`
+	UnitCost      float64 `json:"unit_cost"`
+	TotalCost     float64 `json:"total_cost"`
 }
 
 // CartInfo содержит информацию о корзине

@@ -87,6 +87,33 @@ definitions:
     required:
     - name
     type: object
+  models.FormCalculationRequest:
+    properties:
+      installation_weight:
+        type: number
+      natural_frequency:
+        type: number
+    required:
+    - installation_weight
+    - natural_frequency
+    type: object
+  models.FormCalculationResponse:
+    properties:
+      calculation_id:
+        type: integer
+      calculation_results:
+        items:
+          $ref: '#/definitions/models.MaterialCalculationResult'
+        type: array
+      installation_weight:
+        type: number
+      message:
+        type: string
+      natural_frequency:
+        type: number
+      status:
+        type: string
+    type: object
   models.LoginRequest:
     properties:
       password:
@@ -119,6 +146,23 @@ definitions:
         type: number
       sort_order:
         type: integer
+    type: object
+  models.MaterialCalculationResult:
+    properties:
+      material_id:
+        type: integer
+      material_name:
+        type: string
+      quantity:
+        type: integer
+      result_freq:
+        type: number
+      result_percent:
+        type: number
+      total_cost:
+        type: number
+      unit_cost:
+        type: number
     type: object
   models.MaterialResponse:
     properties:
@@ -157,13 +201,6 @@ definitions:
     - full_name
     - password
     - username
-    type: object
-  models.UpdateCalculationRequest:
-    properties:
-      description:
-        type: string
-      title:
-        type: string
     type: object
   models.UpdateMaterialCalculationRequest:
     properties:
@@ -284,6 +321,8 @@ paths:
             additionalProperties:
               type: string
             type: object
+      security:
+      - BearerAuth: []
       summary: Получить список расчетов
       tags:
       - calculations
@@ -468,81 +507,36 @@ paths:
             additionalProperties:
               type: string
             type: object
-      summary: Получить расчет по ID
-      tags:
-      - calculations
-    put:
-      consumes:
-      - application/json
-      description: Обновляет информацию о существующем расчете
-      parameters:
-      - description: ID расчета
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: Данные для обновления
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/models.UpdateCalculationRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Расчет обновлен
-          schema:
-            $ref: '#/definitions/models.CalculationResponse'
-        "400":
-          description: Неверные данные
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "401":
-          description: Пользователь не аутентифицирован
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "404":
-          description: Расчет не найден
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "500":
-          description: Внутренняя ошибка сервера
-          schema:
-            additionalProperties:
-              type: string
-            type: object
       security:
       - BearerAuth: []
-      summary: Обновить расчет
+      summary: Получить расчет по ID
       tags:
       - calculations
   /calculations/{id}/form:
     put:
       consumes:
       - application/json
-      description: Формирует расчет для дальнейшего завершения или отклонения
+      description: Формирует расчет с обязательными параметрами (вес установки и собственная
+        частота) и возвращает результаты расчетов для каждого материала
       parameters:
       - description: ID расчета
         in: path
         name: id
         required: true
         type: integer
+      - description: Данные для формирования расчета
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.FormCalculationRequest'
       produces:
       - application/json
       responses:
         "200":
-          description: Расчет сформирован
+          description: Результаты формирования расчета
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/models.FormCalculationResponse'
         "400":
           description: Неверные данные
           schema:
@@ -610,6 +604,8 @@ paths:
             additionalProperties:
               type: string
             type: object
+      security:
+      - BearerAuth: []
       summary: Получить материалы расчета
       tags:
       - calculations
@@ -676,7 +672,8 @@ paths:
       consumes:
       - application/json
       description: Возвращает общую информацию о корзине (количество товаров, общая
-        стоимость)
+        стоимость). Для аутентифицированных пользователей показывает их корзину, для
+        гостей - пустую корзину
       produces:
       - application/json
       responses:
@@ -690,6 +687,8 @@ paths:
             additionalProperties:
               type: string
             type: object
+      security:
+      - BearerAuth: []
       summary: Получить информацию о корзине
       tags:
       - calculations
@@ -940,6 +939,8 @@ paths:
             additionalProperties:
               type: string
             type: object
+      security:
+      - BearerAuth: []
       summary: Добавить материал в корзину
       tags:
       - materials

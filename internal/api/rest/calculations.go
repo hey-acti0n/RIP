@@ -10,10 +10,11 @@ import (
 
 // GetCartInfo возвращает информацию о корзине
 // @Summary Получить информацию о корзине
-// @Description Возвращает общую информацию о корзине (количество товаров, общая стоимость)
+// @Description Возвращает общую информацию о корзине (количество товаров, общая стоимость). Для аутентифицированных пользователей показывает их корзину, для гостей - пустую корзину
 // @Tags calculations
 // @Accept json
 // @Produce json
+// @Security BearerAuth
 // @Success 200 {object} models.CartInfo "Информация о корзине"
 // @Failure 500 {object} map[string]string "Внутренняя ошибка сервера"
 // @Router /calculations/cart-info [get]
@@ -33,6 +34,7 @@ func (h *CalculationHandler) GetCartInfo(w http.ResponseWriter, r *http.Request)
 // @Tags calculations
 // @Accept json
 // @Produce json
+// @Security BearerAuth
 // @Param status query string false "Статус расчета"
 // @Param formed_from query string false "Дата начала (YYYY-MM-DD)"
 // @Param formed_to query string false "Дата окончания (YYYY-MM-DD)"
@@ -61,9 +63,14 @@ func (h *CalculationHandler) GetCalculations(w http.ResponseWriter, r *http.Requ
 
 	// Проверяем аутентификацию и устанавливаем фильтр по пользователю
 	userID, isAuthenticated := r.Context().Value("user_id").(int)
+	role, hasRole := r.Context().Value("role").(models.Role)
+
 	if isAuthenticated {
-		// Если пользователь аутентифицирован, показываем только его расчеты
-		filters.CreatorID = &userID
+		// Если пользователь аутентифицирован, но не модератор - показываем только его расчеты
+		if !hasRole || !role.HasPermission(models.ModeratorRole) {
+			filters.CreatorID = &userID
+		}
+		// Модераторы видят все расчеты (не устанавливаем CreatorID)
 	}
 
 	// Получаем данные
@@ -99,6 +106,7 @@ func (h *CalculationHandler) GetCalculations(w http.ResponseWriter, r *http.Requ
 // @Tags calculations
 // @Accept json
 // @Produce json
+// @Security BearerAuth
 // @Param id path int true "ID расчета"
 // @Success 200 {object} models.CalculationResponse "Информация о расчете"
 // @Failure 400 {object} map[string]string "Неверный ID"
@@ -160,6 +168,7 @@ func (h *CalculationHandler) GetCalculation(w http.ResponseWriter, r *http.Reque
 // @Tags calculations
 // @Accept json
 // @Produce json
+// @Security BearerAuth
 // @Param id path int true "ID расчета"
 // @Success 200 {array} models.MaterialCalculationResponse "Список материалов расчета"
 // @Failure 400 {object} map[string]string "Неверный ID"
@@ -192,56 +201,16 @@ func (h *CalculationHandler) GetCalculationMaterials(w http.ResponseWriter, r *h
 	h.writeJSON(w, http.StatusOK, materialCalculationResponses)
 }
 
-// UpdateCalculation обновляет поля расчёта
-// @Summary Обновить расчет
-// @Description Обновляет информацию о существующем расчете
-// @Tags calculations
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Param id path int true "ID расчета"
-// @Param request body models.UpdateCalculationRequest true "Данные для обновления"
-// @Success 200 {object} models.CalculationResponse "Расчет обновлен"
-// @Failure 400 {object} map[string]string "Неверные данные"
-// @Failure 401 {object} map[string]string "Пользователь не аутентифицирован"
-// @Failure 404 {object} map[string]string "Расчет не найден"
-// @Failure 500 {object} map[string]string "Внутренняя ошибка сервера"
-// @Router /calculations/{id} [put]
-func (h *CalculationHandler) UpdateCalculation(w http.ResponseWriter, r *http.Request) {
-	id, err := h.parseID(r)
-	if err != nil {
-		h.writeError(w, http.StatusBadRequest, "Неверный ID расчёта")
-		return
-	}
-
-	var req models.UpdateCalculationRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.writeError(w, http.StatusBadRequest, "Неверный формат данных")
-		return
-	}
-
-	err = h.service.CalculationService.UpdateCalculation(r.Context(), id, req)
-	if err != nil {
-		if err == service.ErrCalculationNotFound {
-			h.writeError(w, http.StatusNotFound, "Расчёт не найден")
-			return
-		}
-		h.writeError(w, http.StatusInternalServerError, "Ошибка обновления расчёта")
-		return
-	}
-
-	h.writeJSON(w, http.StatusOK, map[string]string{"message": "Расчёт обновлён"})
-}
-
 // FormCalculation формирует расчёт
 // @Summary Сформировать расчет
-// @Description Формирует расчет для дальнейшего завершения или отклонения
+// @Description Формирует расчет с обязательными параметрами (вес установки и собственная частота) и возвращает результаты расчетов для каждого материала
 // @Tags calculations
 // @Accept json
 // @Produce json
 // @Security BearerAuth
 // @Param id path int true "ID расчета"
-// @Success 200 {object} map[string]string "Расчет сформирован"
+// @Param request body models.FormCalculationRequest true "Данные для формирования расчета"
+// @Success 200 {object} models.FormCalculationResponse "Результаты формирования расчета"
 // @Failure 400 {object} map[string]string "Неверные данные"
 // @Failure 401 {object} map[string]string "Пользователь не аутентифицирован"
 // @Failure 404 {object} map[string]string "Расчет не найден"
@@ -254,7 +223,23 @@ func (h *CalculationHandler) FormCalculation(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	err = h.service.CalculationService.FormCalculation(r.Context(), id)
+	var req models.FormCalculationRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.writeError(w, http.StatusBadRequest, "Неверный формат данных")
+		return
+	}
+
+	// Валидация обязательных полей
+	if req.InstallationWeight <= 0 {
+		h.writeError(w, http.StatusBadRequest, "Вес установки должен быть больше 0")
+		return
+	}
+	if req.NaturalFrequency <= 0 {
+		h.writeError(w, http.StatusBadRequest, "Собственная частота должна быть больше 0")
+		return
+	}
+
+	response, err := h.service.CalculationService.FormCalculation(r.Context(), id, req)
 	if err != nil {
 		if err == service.ErrCalculationNotFound {
 			h.writeError(w, http.StatusNotFound, "Расчёт не найден")
@@ -268,7 +253,7 @@ func (h *CalculationHandler) FormCalculation(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	h.writeJSON(w, http.StatusOK, map[string]string{"message": "Расчёт сформирован"})
+	h.writeJSON(w, http.StatusOK, response)
 }
 
 // CompleteCalculation завершает или отклоняет расчёт

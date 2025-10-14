@@ -234,6 +234,7 @@ func (h *MaterialHandler) DeleteMaterial(w http.ResponseWriter, r *http.Request)
 // @Tags materials
 // @Accept json
 // @Produce json
+// @Security BearerAuth
 // @Param id path int true "ID материала"
 // @Success 200 {object} map[string]string "Материал добавлен в корзину"
 // @Failure 400 {object} map[string]string "Неверный ID"
