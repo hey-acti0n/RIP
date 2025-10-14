@@ -16,6 +16,7 @@ services:
       POSTGRES_USER: root
       POSTGRES_DB: RIP
       POSTGRES_PASSWORD: root
+  
   minio:
     container_name: minio
     image: minio/minio:latest
@@ -37,6 +38,13 @@ services:
     command: redis-server --save 20 1 --loglevel warning --requirepass password
     volumes:
       - redis-data:/data
+
+  adminer:
+    image: adminer:latest
+    ports:
+      - "8082:8080"
+    depends_on:
+      - db
 
 volumes:
   # часть настроек для хранения данных

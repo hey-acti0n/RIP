@@ -75,7 +75,7 @@ func WriteJSON(w http.ResponseWriter, v any) {
 
 // InitDB establishes connection using env DATABASE_DSN or docker-compose defaults
 func InitDB() *gorm.DB {
-	dsn := Getenv("DATABASE_DSN", "host=localhost user=postgres password=root dbname=rip port=5432 sslmode=disable TimeZone=UTC")
+	dsn := Getenv("DATABASE_DSN", "host=localhost user=root password=root dbname=rip port=5432 sslmode=disable TimeZone=UTC")
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		panic(err)
