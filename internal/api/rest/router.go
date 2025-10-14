@@ -71,13 +71,13 @@ func (r *Router) SetupRoutes() *mux.Router {
 
 	// Домен расчёта
 	calculations := apiV1.PathPrefix("/calculations").Subrouter()
-	calculations.HandleFunc("/cart-info", r.authMiddleware.OptionalAuth(calculationHandler.GetCartInfo)).Methods("GET")
-	calculations.HandleFunc("", r.authMiddleware.OptionalAuth(calculationHandler.GetCalculations)).Methods("GET")
-	calculations.HandleFunc("/{id}", r.authMiddleware.OptionalAuth(calculationHandler.GetCalculation)).Methods("GET")
+	calculations.HandleFunc("/cart-info", r.authMiddleware.RequireAuth(calculationHandler.GetCartInfo)).Methods("GET")
+	calculations.HandleFunc("", r.authMiddleware.RequireAuth(calculationHandler.GetCalculations)).Methods("GET")
+	calculations.HandleFunc("/{id}", r.authMiddleware.RequireAuth(calculationHandler.GetCalculation)).Methods("GET")
 	calculations.HandleFunc("/{id}/form", r.authMiddleware.RequireAuth(calculationHandler.FormCalculation)).Methods("PUT")
-	calculations.HandleFunc("/{id}/status", r.authMiddleware.RequireAuth(r.authMiddleware.RequireRole(models.ModeratorRole)(calculationHandler.CompleteCalculation))).Methods("PUT")
-	calculations.HandleFunc("/{id}/materials", r.authMiddleware.OptionalAuth(calculationHandler.GetCalculationMaterials)).Methods("GET")
-	calculations.HandleFunc("/{id}", r.authMiddleware.RequireAuth(r.authMiddleware.RequireRole(models.ModeratorRole)(calculationHandler.DeleteCalculation))).Methods("DELETE")
+	calculations.HandleFunc("/{id}/status", r.authMiddleware.RequireAuth(calculationHandler.CompleteCalculation)).Methods("PUT")
+	calculations.HandleFunc("/{id}/materials", r.authMiddleware.RequireAuth(calculationHandler.GetCalculationMaterials)).Methods("GET")
+	calculations.HandleFunc("/{id}", r.authMiddleware.RequireAuth(calculationHandler.DeleteCalculation)).Methods("DELETE")
 
 	// Домен м-м (расчёт-материал)
 	materialCalculations := apiV1.PathPrefix("/calculations/{calculationId}/materials").Subrouter()

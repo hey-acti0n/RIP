@@ -291,14 +291,26 @@ func (h *CalculationHandler) CompleteCalculation(w http.ResponseWriter, r *http.
 		return
 	}
 
-	// Получаем ID модератора из контекста
-	moderatorID, ok := r.Context().Value("user_id").(int)
+	// Получаем ID пользователя и роль из контекста
+	userID, ok := r.Context().Value("user_id").(int)
 	if !ok {
-		h.writeError(w, http.StatusUnauthorized, "Модератор не аутентифицирован")
+		h.writeError(w, http.StatusUnauthorized, "Пользователь не аутентифицирован")
 		return
 	}
 
-	response, err := h.service.CalculationService.CompleteCalculation(r.Context(), id, action, moderatorID)
+	role, hasRole := r.Context().Value("role").(models.Role)
+	if !hasRole {
+		h.writeError(w, http.StatusUnauthorized, "Роль пользователя не определена")
+		return
+	}
+
+	// Проверяем права доступа
+	if !role.HasPermission(models.ModeratorRole) {
+		h.writeError(w, http.StatusForbidden, "Недостаточно прав для завершения расчета")
+		return
+	}
+
+	response, err := h.service.CalculationService.CompleteCalculation(r.Context(), id, action, userID)
 	if err != nil {
 		if err == service.ErrCalculationNotFound {
 			h.writeError(w, http.StatusNotFound, "Расчёт не найден")

@@ -1,13 +1,174 @@
 {
 	"info": {
-		"_postman_id": "ultrarezina-api-collection-fixed",
-		"name": "UltraRezina REST API (Fixed)",
-		"description": "Исправленная коллекция запросов для тестирования REST API системы UltraRezina.\n\n**Новая функциональность:**\n- При завершении расчёти (action=complete) API возвращает детальные результаты вычислений для каждого товара в корзине\n- Результаты включают: частоту вибрации, процент эффективности, стоимость единицы и общую стоимость\n- При отклонении расчёти (action=reject) возвращается пустой массив результатов вычислений\n\n**Структура ответа при завершении расчёти:**\n```json\n{\n  \"calculation_id\": 83,\n  \"status\": \"completed\",\n  \"total_cost\": 426,\n  \"delivery_date\": \"2025-10-30T16:18:29.032088+03:00\",\n  \"calculation_results\": [\n    {\n      \"material_id\": 2,\n      \"material_name\": \"Полиуретановый демпфер PU-450\",\n      \"quantity\": 1,\n      \"result_freq\": 5.032921210448704,\n      \"result_percent\": 90.85470823690686,\n      \"unit_cost\": 255,\n      \"total_cost\": 255\n    }\n  ],\n  \"message\": \"Заявка завершена\"\n}\n```",
+		"_postman_id": "ultrarezina-api-collection-updated",
+		"name": "UltraRezina REST API (Updated)",
+		"description": "Обновленная коллекция запросов для тестирования REST API системы UltraRezina с полной поддержкой авторизации.\n\n**Основные изменения:**\n- Добавлена поддержка JWT авторизации для всех защищенных эндпоинтов\n- Обновлены эндпоинты в соответствии с текущей реализацией\n- Добавлены переменные для токенов и ID\n- Исправлены пути и параметры запросов\n- Добавлены примеры ответов с результатами вычислений\n\n**Авторизация:**\n1. Сначала выполните POST /users/login для получения JWT токена\n2. Скопируйте токен из ответа\n3. Установите переменную {{jwt_token}} = ваш_токен\n4. Все защищенные запросы будут автоматически использовать токен\n\n**Роли пользователей:**\n- **User (0)**: Может создавать и просматривать только свои расчеты\n- **Moderator (1)**: Может просматривать все расчеты и завершать их\n- **Admin (2)**: Полный доступ ко всем функциям",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"item": [
 		{
-			"name": "Материалы",
+			"name": "🔐 Аутентификация",
+			"item": [
+				{
+					"name": "Регистрация пользователя",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"testuser\",\n  \"email\": \"test@example.com\",\n  \"password\": \"password123\",\n  \"full_name\": \"Тестовый Пользователь\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/users/register",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "users", "register"]
+						}
+					},
+					"response": [
+						{
+							"name": "Успешная регистрация",
+							"originalRequest": {
+								"method": "POST",
+								"header": [{"key": "Content-Type", "value": "application/json"}],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"username\": \"testuser\",\n  \"email\": \"test@example.com\",\n  \"password\": \"password123\",\n  \"full_name\": \"Тестовый Пользователь\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/v1/users/register",
+									"host": ["{{base_url}}"],
+									"path": ["api", "v1", "users", "register"]
+								}
+							},
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{"key": "Content-Type", "value": "application/json; charset=utf-8"}
+							],
+							"cookie": [],
+							"body": "{\n  \"user\": {\n    \"id\": 1,\n    \"username\": \"testuser\",\n    \"email\": \"test@example.com\",\n    \"full_name\": \"Тестовый Пользователь\",\n    \"is_active\": true\n  },\n  \"message\": \"Пользователь успешно зарегистрирован\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Вход в систему",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"admin\",\n  \"password\": \"admin\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/users/login",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "users", "login"]
+						}
+					},
+					"response": [
+						{
+							"name": "Успешный вход",
+							"originalRequest": {
+								"method": "POST",
+								"header": [{"key": "Content-Type", "value": "application/json"}],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"username\": \"admin\",\n  \"password\": \"admin\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/v1/users/login",
+									"host": ["{{base_url}}"],
+									"path": ["api", "v1", "users", "login"]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{"key": "Content-Type", "value": "application/json; charset=utf-8"}
+							],
+							"cookie": [],
+							"body": "{\n  \"user\": {\n    \"id\": 6,\n    \"username\": \"admin\",\n    \"email\": \"admin@yandex.ru\",\n    \"full_name\": \"\",\n    \"is_active\": true\n  },\n  \"token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjo2LCJ1c2VybmFtZSI6ImFkbWluIiwicm9sZSI6MSwiaXNzIjoicmlwLWFwaSIsInN1YiI6IjYiLCJleHAiOjE3NjA0ODQ3NTAsIm5iZiI6MTc2MDM5ODM1MCwiaWF0IjoxNzYwMzk4MzUwfQ.swMK0zOCqfSkbLtKgubO-e0PLHnEZIGW8rmyYq-E5Jw\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Получить профиль",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/users/profile",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "users", "profile"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Обновить профиль",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"full_name\": \"Обновленное Имя\",\n  \"email\": \"newemail@example.com\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/users/profile",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "users", "profile"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Выход из системы",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/users/logout",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "users", "logout"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "📦 Материалы",
 			"item": [
 				{
 					"name": "Получить список материалов",
@@ -33,7 +194,7 @@
 					"response": []
 				},
 				{
-					"name": "Получить материалову по ID",
+					"name": "Получить материал по ID",
 					"request": {
 						"method": "GET",
 						"header": [],
@@ -46,7 +207,7 @@
 					"response": []
 				},
 				{
-					"name": "Создать новую материалову",
+					"name": "Создать новый материал",
 					"request": {
 						"method": "POST",
 						"header": [
@@ -68,7 +229,7 @@
 					"response": []
 				},
 				{
-					"name": "Обновить материалову",
+					"name": "Обновить материал",
 					"request": {
 						"method": "PUT",
 						"header": [
@@ -90,7 +251,7 @@
 					"response": []
 				},
 				{
-					"name": "Удалить материалову",
+					"name": "Удалить материал",
 					"request": {
 						"method": "DELETE",
 						"header": [],
@@ -103,20 +264,46 @@
 					"response": []
 				},
 				{
-					"name": "Добавить материалову в корзину",
+					"name": "🛒 Добавить материал в корзину",
 					"request": {
 						"method": "POST",
-						"header": [],
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
 						"url": {
-							"raw": "{{base_url}}/api/v1/materials/1/add-to-cart",
+							"raw": "{{base_url}}/api/v1/materials/19/add-to-cart",
 							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "materials", "1", "add-to-cart"]
+							"path": ["api", "v1", "materials", "19", "add-to-cart"]
 						}
 					},
-					"response": []
+					"response": [
+						{
+							"name": "Успешное добавление в корзину",
+							"originalRequest": {
+								"method": "POST",
+								"header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}"}],
+								"url": {
+									"raw": "{{base_url}}/api/v1/materials/19/add-to-cart",
+									"host": ["{{base_url}}"],
+									"path": ["api", "v1", "materials", "19", "add-to-cart"]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{"key": "Content-Type", "value": "application/json; charset=utf-8"}
+							],
+							"cookie": [],
+							"body": "{\n  \"calculation_id\": 10,\n  \"message\": \"Материал добавлен в корзину\"\n}"
+						}
+					]
 				},
 				{
-					"name": "Загрузить изображение материалови",
+					"name": "Загрузить изображение материала",
 					"request": {
 						"method": "POST",
 						"header": [],
@@ -141,26 +328,57 @@
 			]
 		},
 		{
-			"name": "Расчёты",
+			"name": "📊 Расчеты",
 			"item": [
 				{
 					"name": "Получить информацию о корзине",
 					"request": {
 						"method": "GET",
-						"header": [],
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
 						"url": {
 							"raw": "{{base_url}}/api/v1/calculations/cart-info",
 							"host": ["{{base_url}}"],
 							"path": ["api", "v1", "calculations", "cart-info"]
 						}
 					},
-					"response": []
+					"response": [
+						{
+							"name": "Информация о корзине",
+							"originalRequest": {
+								"method": "GET",
+								"header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}"}],
+								"url": {
+									"raw": "{{base_url}}/api/v1/calculations/cart-info",
+									"host": ["{{base_url}}"],
+									"path": ["api", "v1", "calculations", "cart-info"]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{"key": "Content-Type", "value": "application/json; charset=utf-8"}
+							],
+							"cookie": [],
+							"body": "{\n  \"calculation_id\": 10,\n  \"item_count\": 1\n}"
+						}
+					]
 				},
 				{
-					"name": "Получить список заявок",
+					"name": "Получить список расчетов",
 					"request": {
 						"method": "GET",
-						"header": [],
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
 						"url": {
 							"raw": "{{base_url}}/api/v1/calculations?status=&formed_from=&formed_to=&page=1&limit=10",
 							"host": ["{{base_url}}"],
@@ -177,10 +395,15 @@
 					"response": []
 				},
 				{
-					"name": "Получить расчёту по ID",
+					"name": "Получить расчет по ID",
 					"request": {
 						"method": "GET",
-						"header": [],
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
 						"url": {
 							"raw": "{{base_url}}/api/v1/calculations/1",
 							"host": ["{{base_url}}"],
@@ -190,10 +413,15 @@
 					"response": []
 				},
 				{
-					"name": "Получить материалови в расчёте",
+					"name": "Получить материалы в расчете",
 					"request": {
 						"method": "GET",
-						"header": [],
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
 						"url": {
 							"raw": "{{base_url}}/api/v1/calculations/1/materials",
 							"host": ["{{base_url}}"],
@@ -203,49 +431,73 @@
 					"response": []
 				},
 				{
-					"name": "Обновить расчёту",
+					"name": "Сформировать расчет",
 					"request": {
 						"method": "PUT",
 						"header": [
 							{
 								"key": "Content-Type",
 								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
 							}
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"title\": \"Тестовая расчёта\",\n  \"description\": \"Описание тестовой расчёти\"\n}"
+							"raw": "{\n  \"title\": \"Тестовый расчет\",\n  \"description\": \"Описание тестового расчета\",\n  \"installation_weight\": 1000.0,\n  \"natural_frequency\": 50.0\n}"
 						},
 						"url": {
-							"raw": "{{base_url}}/api/v1/calculations/1",
+							"raw": "{{base_url}}/api/v1/calculations/{{calculation_id}}/form",
 							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "calculations", "1"]
+							"path": ["api", "v1", "calculations", "{{calculation_id}}", "form"]
 						}
 					},
-					"response": []
-				},
+					"response": [
 				{
-					"name": "Сформировать расчёту",
-					"request": {
+							"name": "Успешное формирование расчета",
+							"originalRequest": {
 						"method": "PUT",
-						"header": [],
+								"header": [
+									{"key": "Content-Type", "value": "application/json"},
+									{"key": "Authorization", "value": "Bearer {{jwt_token}}"}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"title\": \"Тестовый расчет\",\n  \"description\": \"Описание тестового расчета\",\n  \"installation_weight\": 1000.0,\n  \"natural_frequency\": 50.0\n}"
+								},
 						"url": {
 							"raw": "{{base_url}}/api/v1/calculations/1/form",
 							"host": ["{{base_url}}"],
 							"path": ["api", "v1", "calculations", "1", "form"]
 						}
 					},
-					"response": []
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{"key": "Content-Type", "value": "application/json; charset=utf-8"}
+							],
+							"cookie": [],
+							"body": "{\n  \"calculation_id\": 1,\n  \"status\": \"formed\",\n  \"message\": \"Расчет успешно сформирован\",\n  \"calculation_results\": [\n    {\n      \"material_id\": 1,\n      \"material_name\": \"Резина EPDM\",\n      \"quantity\": 2,\n      \"result_freq\": 45.2,\n      \"result_percent\": 85.5,\n      \"unit_cost\": 150.0,\n      \"total_cost\": 300.0\n    }\n  ]\n}"
+						}
+					]
 				},
 				{
-					"name": "Завершить расчёту",
+					"name": "Завершить расчет (только модератор)",
 					"request": {
 						"method": "PUT",
-						"header": [],
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
 						"url": {
-							"raw": "{{base_url}}/api/v1/calculations/1/status?action=complete",
+							"raw": "{{base_url}}/api/v1/calculations/{{calculation_id}}/status?action=complete",
 							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "calculations", "1", "status"],
+							"path": ["api", "v1", "calculations", "{{calculation_id}}", "status"],
 							"query": [
 								{"key": "action", "value": "complete", "description": "complete или reject"}
 							]
@@ -253,42 +505,42 @@
 					},
 					"response": [
 						{
-							"name": "Успешное завершение расчёти с результатами вычислений",
+							"name": "Успешное завершение расчета",
 							"originalRequest": {
 								"method": "PUT",
-								"header": [],
+								"header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}"}],
 								"url": {
 									"raw": "{{base_url}}/api/v1/calculations/83/status?action=complete",
 									"host": ["{{base_url}}"],
 									"path": ["api", "v1", "calculations", "83", "status"],
-									"query": [
-										{"key": "action", "value": "complete"}
-									]
+									"query": [{"key": "action", "value": "complete"}]
 								}
 							},
 							"status": "OK",
 							"code": 200,
 							"_postman_previewlanguage": "json",
 							"header": [
-								{
-									"key": "Content-Type",
-									"value": "application/json; charset=utf-8"
-								}
+								{"key": "Content-Type", "value": "application/json; charset=utf-8"}
 							],
 							"cookie": [],
-							"body": "{\n  \"calculation_id\": 83,\n  \"status\": \"completed\",\n  \"total_cost\": 426,\n  \"delivery_date\": \"2025-10-30T16:18:29.032088+03:00\",\n  \"calculation_results\": [\n    {\n      \"material_id\": 2,\n      \"material_name\": \"Полиуретановый демпфер PU-450\",\n      \"quantity\": 1,\n      \"result_freq\": 5.032921210448704,\n      \"result_percent\": 90.85470823690686,\n      \"unit_cost\": 255,\n      \"total_cost\": 255\n    },\n    {\n      \"material_id\": 3,\n      \"material_name\": \"Пробковая подложка CorkMat 8mm\",\n      \"quantity\": 1,\n      \"result_freq\": 5.032921210448704,\n      \"result_percent\": 90.85470823690686,\n      \"unit_cost\": 171,\n      \"total_cost\": 171\n    }\n  ],\n  \"message\": \"Заявка завершена\"\n}"
+							"body": "{\n  \"calculation_id\": 83,\n  \"status\": \"completed\",\n  \"total_cost\": 426,\n  \"delivery_date\": \"2025-10-30T16:18:29.032088+03:00\",\n  \"calculation_results\": [\n    {\n      \"material_id\": 2,\n      \"material_name\": \"Полиуретановый демпфер PU-450\",\n      \"quantity\": 1,\n      \"result_freq\": 5.032921210448704,\n      \"result_percent\": 90.85470823690686,\n      \"unit_cost\": 255,\n      \"total_cost\": 255\n    }\n  ],\n  \"message\": \"Заявка завершена\"\n}"
 						}
 					]
 				},
 				{
-					"name": "Отклонить расчёту",
+					"name": "Отклонить расчет (только модератор)",
 					"request": {
 						"method": "PUT",
-						"header": [],
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
 						"url": {
-							"raw": "{{base_url}}/api/v1/calculations/1/status?action=reject",
+							"raw": "{{base_url}}/api/v1/calculations/{{calculation_id}}/status?action=reject",
 							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "calculations", "1", "status"],
+							"path": ["api", "v1", "calculations", "{{calculation_id}}", "status"],
 							"query": [
 								{"key": "action", "value": "reject", "description": "complete или reject"}
 							]
@@ -296,27 +548,22 @@
 					},
 					"response": [
 						{
-							"name": "Успешное отклонение расчёти",
+							"name": "Успешное отклонение расчета",
 							"originalRequest": {
 								"method": "PUT",
-								"header": [],
+								"header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}"}],
 								"url": {
 									"raw": "{{base_url}}/api/v1/calculations/84/status?action=reject",
 									"host": ["{{base_url}}"],
 									"path": ["api", "v1", "calculations", "84", "status"],
-									"query": [
-										{"key": "action", "value": "reject"}
-									]
+									"query": [{"key": "action", "value": "reject"}]
 								}
 							},
 							"status": "OK",
 							"code": 200,
 							"_postman_previewlanguage": "json",
 							"header": [
-								{
-									"key": "Content-Type",
-									"value": "application/json; charset=utf-8"
-								}
+								{"key": "Content-Type", "value": "application/json; charset=utf-8"}
 							],
 							"cookie": [],
 							"body": "{\n  \"calculation_id\": 84,\n  \"status\": \"rejected\",\n  \"total_cost\": 0,\n  \"delivery_date\": null,\n  \"calculation_results\": [],\n  \"message\": \"Заявка отклонена\"\n}"
@@ -324,48 +571,15 @@
 					]
 				},
 				{
-					"name": "Удалить расчёту",
+					"name": "Удалить расчет",
 					"request": {
 						"method": "DELETE",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/api/v1/calculations/1",
-							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "calculations", "1"]
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "Полный цикл: Создание и завершение расчёти с результатами",
-					"item": [
-						{
-							"name": "1. Добавить материалову в корзину",
-							"request": {
-								"method": "POST",
-								"header": [],
-								"url": {
-									"raw": "{{base_url}}/api/v1/materials/2/add-to-cart",
-									"host": ["{{base_url}}"],
-									"path": ["api", "v1", "materials", "2", "add-to-cart"]
-								}
-							},
-							"response": []
-						},
-						{
-							"name": "2. Обновить расчёту",
-							"request": {
-								"method": "PUT",
 								"header": [
 									{
-										"key": "Content-Type",
-										"value": "application/json"
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
 									}
 								],
-								"body": {
-									"mode": "raw",
-									"raw": "{\n  \"title\": \"Демонстрационная расчёта\",\n  \"description\": \"Заявка для демонстрации результатов вычислений\"\n}"
-								},
 								"url": {
 									"raw": "{{base_url}}/api/v1/calculations/{{calculation_id}}",
 									"host": ["{{base_url}}"],
@@ -373,51 +587,24 @@
 								}
 							},
 							"response": []
-						},
-						{
-							"name": "3. Сформировать расчёту",
-							"request": {
-								"method": "PUT",
-								"header": [],
-								"url": {
-									"raw": "{{base_url}}/api/v1/calculations/{{calculation_id}}/form",
-									"host": ["{{base_url}}"],
-									"path": ["api", "v1", "calculations", "{{calculation_id}}", "form"]
-								}
-							},
-							"response": []
-						},
-						{
-							"name": "4. Завершить расчёту с результатами вычислений",
-							"request": {
-								"method": "PUT",
-								"header": [],
-								"url": {
-									"raw": "{{base_url}}/api/v1/calculations/{{calculation_id}}/status?action=complete",
-									"host": ["{{base_url}}"],
-									"path": ["api", "v1", "calculations", "{{calculation_id}}", "status"],
-									"query": [
-										{"key": "action", "value": "complete"}
-									]
-								}
-							},
-							"response": []
-						}
-					]
 				}
 			]
 		},
 		{
-			"name": "Связи Расчёт-Материал",
+			"name": "🔗 Связи Расчет-Материал",
 			"item": [
 				{
-					"name": "Обновить связь расчёта-материалова",
+					"name": "Обновить связь расчета-материала",
 					"request": {
 						"method": "PUT",
 						"header": [
 							{
 								"key": "Content-Type",
 								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
 							}
 						],
 						"body": {
@@ -425,22 +612,27 @@
 							"raw": "{\n  \"quantity\": 3,\n  \"sort_order\": 1,\n  \"comment\": \"Обновленный комментарий\"\n}"
 						},
 						"url": {
-							"raw": "{{base_url}}/api/v1/calculations/1/materials/1",
+							"raw": "{{base_url}}/api/v1/calculations/{{calculation_id}}/materials/1",
 							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "calculations", "1", "materials", "1"]
+							"path": ["api", "v1", "calculations", "{{calculation_id}}", "materials", "1"]
 						}
 					},
 					"response": []
 				},
 				{
-					"name": "Удалить материалову из расчёти",
+					"name": "Удалить материал из расчета",
 					"request": {
 						"method": "DELETE",
-						"header": [],
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
 						"url": {
-							"raw": "{{base_url}}/api/v1/calculations/1/materials/1",
+							"raw": "{{base_url}}/api/v1/calculations/{{calculation_id}}/materials/1",
 							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "calculations", "1", "materials", "1"]
+							"path": ["api", "v1", "calculations", "{{calculation_id}}", "materials", "1"]
 						}
 					},
 					"response": []
@@ -448,10 +640,10 @@
 			]
 		},
 		{
-			"name": "Пользователи",
+			"name": "🔄 Полный цикл тестирования",
 			"item": [
 				{
-					"name": "Регистрация пользователя",
+					"name": "1. Вход в систему",
 					"request": {
 						"method": "POST",
 						"header": [
@@ -462,29 +654,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"username\": \"testuser\",\n  \"email\": \"test@example.com\",\n  \"password\": \"password123\",\n  \"full_name\": \"Тестовый Пользователь\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/api/v1/users/register",
-							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "users", "register"]
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "Аутентификация пользователя",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"username\": \"testuser\",\n  \"password\": \"password123\"\n}"
+							"raw": "{\n  \"username\": \"admin\",\n  \"password\": \"admin\"\n}"
 						},
 						"url": {
 							"raw": "{{base_url}}/api/v1/users/login",
@@ -495,49 +665,84 @@
 					"response": []
 				},
 				{
-					"name": "Получить профиль пользователя",
+					"name": "2. Добавить материал в корзину",
 					"request": {
-						"method": "GET",
-						"header": [],
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
 						"url": {
-							"raw": "{{base_url}}/api/v1/users/profile",
+							"raw": "{{base_url}}/api/v1/materials/19/add-to-cart",
 							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "users", "profile"]
+							"path": ["api", "v1", "materials", "19", "add-to-cart"]
 						}
 					},
 					"response": []
 				},
 				{
-					"name": "Обновить профиль пользователя",
+					"name": "3. Проверить корзину",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/calculations/cart-info",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "calculations", "cart-info"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "4. Сформировать расчет",
 					"request": {
 						"method": "PUT",
 						"header": [
 							{
 								"key": "Content-Type",
 								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
 							}
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"full_name\": \"Обновленное Имя\",\n  \"email\": \"newemail@example.com\"\n}"
+							"raw": "{\n  \"title\": \"Демонстрационный расчет\",\n  \"description\": \"Расчет для демонстрации результатов вычислений\",\n  \"installation_weight\": 1000.0,\n  \"natural_frequency\": 50.0\n}"
 						},
 						"url": {
-							"raw": "{{base_url}}/api/v1/users/profile",
+							"raw": "{{base_url}}/api/v1/calculations/{{calculation_id}}/form",
 							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "users", "profile"]
+							"path": ["api", "v1", "calculations", "{{calculation_id}}", "form"]
 						}
 					},
 					"response": []
 				},
 				{
-					"name": "Деавторизация пользователя",
+					"name": "5. Завершить расчет (модератор)",
 					"request": {
-						"method": "POST",
-						"header": [],
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
 						"url": {
-							"raw": "{{base_url}}/api/v1/users/logout",
+							"raw": "{{base_url}}/api/v1/calculations/{{calculation_id}}/status?action=complete",
 							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "users", "logout"]
+							"path": ["api", "v1", "calculations", "{{calculation_id}}", "status"],
+							"query": [
+								{"key": "action", "value": "complete"}
+							]
 						}
 					},
 					"response": []
@@ -552,9 +757,48 @@
 			"description": "Базовый URL API сервера"
 		},
 		{
+			"key": "jwt_token",
+			"value": "",
+			"description": "JWT токен для авторизации (получается через POST /users/login)"
+		},
+		{
 			"key": "calculation_id",
 			"value": "1",
-			"description": "ID расчёти для тестирования (автоматически обновляется при создании новой расчёти)"
+			"description": "ID расчета для тестирования (автоматически обновляется при создании новой корзины)"
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Автоматическое извлечение calculation_id из ответа добавления в корзину",
+					"if (pm.response && pm.response.json() && pm.response.json().calculation_id) {",
+					"    pm.collectionVariables.set('calculation_id', pm.response.json().calculation_id);",
+					"    console.log('Updated calculation_id to:', pm.response.json().calculation_id);",
+					"}"
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Автоматическое извлечение JWT токена из ответа входа",
+					"if (pm.response && pm.response.json() && pm.response.json().token) {",
+					"    pm.collectionVariables.set('jwt_token', pm.response.json().token);",
+					"    console.log('JWT token updated');",
+					"}",
+					"",
+					"// Автоматическое извлечение calculation_id из ответа добавления в корзину",
+					"if (pm.response && pm.response.json() && pm.response.json().calculation_id) {",
+					"    pm.collectionVariables.set('calculation_id', pm.response.json().calculation_id);",
+					"    console.log('Updated calculation_id to:', pm.response.json().calculation_id);",
+					"}"
+				]
+			}
 		}
 	]
 }
