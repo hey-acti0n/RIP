@@ -2,7 +2,7 @@
 	"info": {
 		"_postman_id": "ultrarezina-api-collection-updated",
 		"name": "UltraRezina REST API (Updated)",
-		"description": "Обновленная коллекция запросов для тестирования REST API системы UltraRezina с полной поддержкой авторизации.\n\n**Основные изменения:**\n- Добавлена поддержка JWT авторизации для всех защищенных эндпоинтов\n- Обновлены эндпоинты в соответствии с текущей реализацией\n- Добавлены переменные для токенов и ID\n- Исправлены пути и параметры запросов\n- Добавлены примеры ответов с результатами вычислений\n\n**Авторизация:**\n1. Сначала выполните POST /users/login для получения JWT токена\n2. Скопируйте токен из ответа\n3. Установите переменную {{jwt_token}} = ваш_токен\n4. Все защищенные запросы будут автоматически использовать токен\n\n**Роли пользователей:**\n- **User (0)**: Может создавать и просматривать только свои расчеты\n- **Moderator (1)**: Может просматривать все расчеты и завершать их\n- **Admin (2)**: Полный доступ ко всем функциям",
+		"description": "Обновленная коллекция запросов для тестирования REST API системы UltraRezina с полной поддержкой авторизации.\n\n**Основные изменения:**\n- Добавлена поддержка JWT авторизации для всех защищенных эндпоинтов\n- Обновлены эндпоинты в соответствии с текущей реализацией\n- Добавлены переменные для токенов и ID\n- Исправлены пути и параметры запросов\n- Добавлены примеры ответов с результатами вычислений\n\n**Авторизация (ручной ввод):**\n1. Сначала выполните POST /users/login для получения JWT токена\n2. Скопируйте токен из ответа вручную\n3. Вручную установите переменную {{jwt_token}} = ваш_токен в настройках коллекции\n4. Все защищенные запросы будут использовать токен из переменной\n\n**Роли пользователей:**\n- **User (0)**: Может создавать и просматривать только свои расчеты\n- **Moderator (1)**: Может просматривать все расчеты и завершать их\n- **Admin (2)**: Полный доступ ко всем функциям",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"item": [
@@ -759,46 +759,12 @@
 		{
 			"key": "jwt_token",
 			"value": "",
-			"description": "JWT токен для авторизации (получается через POST /users/login)"
+			"description": "JWT токен для авторизации (получается через POST /users/login, необходимо вводить вручную)"
 		},
 		{
 			"key": "calculation_id",
 			"value": "1",
-			"description": "ID расчета для тестирования (автоматически обновляется при создании новой корзины)"
-		}
-	],
-	"event": [
-		{
-			"listen": "prerequest",
-			"script": {
-				"type": "text/javascript",
-				"exec": [
-					"// Автоматическое извлечение calculation_id из ответа добавления в корзину",
-					"if (pm.response && pm.response.json() && pm.response.json().calculation_id) {",
-					"    pm.collectionVariables.set('calculation_id', pm.response.json().calculation_id);",
-					"    console.log('Updated calculation_id to:', pm.response.json().calculation_id);",
-					"}"
-				]
-			}
-		},
-		{
-			"listen": "test",
-			"script": {
-				"type": "text/javascript",
-				"exec": [
-					"// Автоматическое извлечение JWT токена из ответа входа",
-					"if (pm.response && pm.response.json() && pm.response.json().token) {",
-					"    pm.collectionVariables.set('jwt_token', pm.response.json().token);",
-					"    console.log('JWT token updated');",
-					"}",
-					"",
-					"// Автоматическое извлечение calculation_id из ответа добавления в корзину",
-					"if (pm.response && pm.response.json() && pm.response.json().calculation_id) {",
-					"    pm.collectionVariables.set('calculation_id', pm.response.json().calculation_id);",
-					"    console.log('Updated calculation_id to:', pm.response.json().calculation_id);",
-					"}"
-				]
-			}
+			"description": "ID расчета для тестирования (необходимо вводить вручную)"
 		}
 	]
 }
