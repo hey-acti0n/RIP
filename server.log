@@ -1,10 +1,69 @@
-2025/09/15 18:08:03 UltraRezina server listening on :8080
-2025/09/15 18:11:32 /add POST: requestId="1" serviceId=2
+2025/11/24 23:09:17 Подключение к базе данных установлено
+2025/11/24 23:09:17 Миграции базы данных выполнены успешно
+2025/11/24 23:09:17 Redis connected successfully
+2025/11/24 23:09:17 UltraRezina REST API server listening on :8080 (HTTPS)
 
-2025/09/15 18:11:32 [31;1m/Users/acti0n/Documents/RIP/main.go:503 [35;1mrecord not found
-[0m[33m[2.261ms] [34;1m[rows:0][0m SELECT * FROM "requests" WHERE id = '1' AND status <> 'rejected' ORDER BY "requests"."id" LIMIT 1
+2025/11/24 23:09:36 [31;1m/Users/acti0n/Documents/RIP-backend/internal/app/service/service.go:893 [35;1mrecord not found
+[0m[33m[5.916ms] [34;1m[rows:0][0m SELECT * FROM "users" WHERE username = 'test' AND is_active = true ORDER BY "users"."id" LIMIT 1
+DEBUG: GetCurrentUserIDFromContext - получили int: 5
+DEBUG: AddMaterialToCart - userID: 5, ok: true
+DEBUG: AddMaterialToCart - ищем расчет для userID: 5
+DEBUG: AddMaterialToCart - найден существующий расчет ID: 10 для userID: 5
+DEBUG: GetCurrentUserIDFromContext - получили int: 5
+DEBUG: GetCartInfo - userID: 5
+DEBUG: GetCartInfo - найден расчет ID: 10 для userID: 5
+DEBUG: GetCartInfo - количество товаров: 2
+DEBUG: GetCurrentUserIDFromContext - получили int: 5
+DEBUG: GetCartInfo - userID: 5
+DEBUG: GetCartInfo - найден расчет ID: 10 для userID: 5
+DEBUG: GetCartInfo - количество товаров: 2
+DEBUG: GetCurrentUserIDFromContext - получили int: 5
+DEBUG: GetCartInfo - userID: 5
+DEBUG: GetCartInfo - найден расчет ID: 10 для userID: 5
+DEBUG: GetCartInfo - количество товаров: 2
+DEBUG: GetCurrentUserIDFromContext - получили int: 5
+DEBUG: GetCartInfo - userID: 5
+DEBUG: GetCartInfo - найден расчет ID: 10 для userID: 5
+DEBUG: GetCartInfo - количество товаров: 2
+DEBUG: GetCurrentUserIDFromContext - получили int: 5
+DEBUG: FormCalculation - userID: 5, id: 10
+DEBUG: FormCalculation - найдено материалов: 2
+DEBUG: FormCalculation - сохранены результаты для материала 9: freq=22.51, percent=98.73
+DEBUG: FormCalculation - сохранены результаты для материала 10: freq=15.59, percent=99.39
+DEBUG: GetCurrentUserIDFromContext - получили int: 5
+DEBUG: AddMaterialToCart - userID: 5, ok: true
+DEBUG: AddMaterialToCart - ищем расчет для userID: 5
 
-2025/09/15 18:11:32 [31;1m/Users/acti0n/Documents/RIP/main.go:506 [35;1mrecord not found
-[0m[33m[0.697ms] [34;1m[rows:0][0m SELECT * FROM "requests" WHERE creator_id = 1 AND status = 'pending' ORDER BY "requests"."id" LIMIT 1
-2025/09/15 18:11:32 /add redirect -> http://localhost:8080/?requestId=24
-signal: terminated
+2025/11/24 23:11:34 [31;1m/Users/acti0n/Documents/RIP-backend/internal/app/service/service.go:262 [35;1mrecord not found
+[0m[33m[1.276ms] [34;1m[rows:0][0m SELECT * FROM "calculations" WHERE creator_id = 5 AND status = 'pending' ORDER BY "calculations"."id" LIMIT 1
+DEBUG: AddMaterialToCart - создаем новый расчет для userID: 5
+DEBUG: AddMaterialToCart - создан расчет ID: 11 для userID: 5
+DEBUG: GetCurrentUserIDFromContext - получили int: 5
+DEBUG: GetCartInfo - userID: 5
+DEBUG: GetCartInfo - найден расчет ID: 11 для userID: 5
+DEBUG: GetCartInfo - количество товаров: 1
+DEBUG: GetCurrentUserIDFromContext - получили int: 5
+DEBUG: GetCartInfo - userID: 5
+DEBUG: GetCartInfo - найден расчет ID: 11 для userID: 5
+DEBUG: GetCartInfo - количество товаров: 1
+DEBUG: GetCurrentUserIDFromContext - получили int: 5
+DEBUG: GetCartInfo - userID: 5
+DEBUG: GetCartInfo - найден расчет ID: 11 для userID: 5
+DEBUG: GetCartInfo - количество товаров: 1
+DEBUG: GetCurrentUserIDFromContext - получили int: 5
+DEBUG: GetCartInfo - userID: 5
+DEBUG: GetCartInfo - найден расчет ID: 11 для userID: 5
+DEBUG: GetCartInfo - количество товаров: 1
+DEBUG: GetCurrentUserIDFromContext - получили int: 5
+DEBUG: AddMaterialToCart - userID: 5, ok: true
+DEBUG: AddMaterialToCart - ищем расчет для userID: 5
+DEBUG: AddMaterialToCart - найден существующий расчет ID: 11 для userID: 5
+DEBUG: GetCurrentUserIDFromContext - получили int: 5
+DEBUG: GetCartInfo - userID: 5
+DEBUG: GetCartInfo - найден расчет ID: 11 для userID: 5
+DEBUG: GetCartInfo - количество товаров: 2
+DEBUG: GetCurrentUserIDFromContext - получили int: 5
+DEBUG: GetCartInfo - userID: 5
+DEBUG: GetCartInfo - найден расчет ID: 11 для userID: 5
+DEBUG: GetCartInfo - количество товаров: 2
+signal: killed

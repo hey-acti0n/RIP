@@ -361,3 +361,65 @@ func (h *CalculationHandler) DeleteCalculation(w http.ResponseWriter, r *http.Re
 
 	h.writeJSON(w, http.StatusOK, map[string]string{"message": "Расчёт удалён"})
 }
+
+// UpdateCalculationResult обновляет результат расчета (total_cost) из асинхронного сервиса
+// @Summary Обновить результат расчета
+// @Description Обновляет результат расчета (total_cost) из асинхронного сервиса. Требует токен авторизации
+// @Tags calculations
+// @Accept json
+// @Produce json
+// @Param id path int true "ID расчета"
+// @Param X-Auth-Token header string true "Токен авторизации (8 байт)"
+// @Param request body models.UpdateCalculationResultRequest true "Данные для обновления результата"
+// @Success 200 {object} map[string]string "Результат обновлен"
+// @Failure 400 {object} map[string]string "Неверные данные"
+// @Failure 401 {object} map[string]string "Неверный токен авторизации"
+// @Failure 404 {object} map[string]string "Расчет не найден"
+// @Failure 500 {object} map[string]string "Внутренняя ошибка сервера"
+// @Router /calculations/{id}/update-result [put]
+func (h *CalculationHandler) UpdateCalculationResult(w http.ResponseWriter, r *http.Request) {
+	// Константа для токена авторизации (8 байт)
+	const authToken = "secret123"
+
+	// Проверяем токен авторизации
+	token := r.Header.Get("X-Auth-Token")
+	if token != authToken {
+		h.writeError(w, http.StatusUnauthorized, "Неверный токен авторизации")
+		return
+	}
+
+	id, err := h.parseID(r)
+	if err != nil {
+		h.writeError(w, http.StatusBadRequest, "Неверный ID расчёта")
+		return
+	}
+
+	var req models.UpdateCalculationResultRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.writeError(w, http.StatusBadRequest, "Неверный формат данных")
+		return
+	}
+
+	// Валидация
+	if req.TotalCost < 0 {
+		h.writeError(w, http.StatusBadRequest, "Стоимость не может быть отрицательной")
+		return
+	}
+
+	// Обновляем результат расчета
+	err = h.service.CalculationService.UpdateCalculationResult(r.Context(), id, req.TotalCost)
+	if err != nil {
+		if err == service.ErrCalculationNotFound {
+			h.writeError(w, http.StatusNotFound, "Расчёт не найден")
+			return
+		}
+		h.writeError(w, http.StatusInternalServerError, "Ошибка обновления результата")
+		return
+	}
+
+	h.writeJSON(w, http.StatusOK, map[string]interface{}{
+		"message":        "Результат расчёта обновлён",
+		"calculation_id": id,
+		"total_cost":     req.TotalCost,
+	})
+}

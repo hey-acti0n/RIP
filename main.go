@@ -21,8 +21,10 @@
 package main
 
 import (
+	"crypto/tls"
 	"log"
 	"net/http"
+	"os"
 
 	"rip/docs"
 	"rip/internal/api/rest"
@@ -32,11 +34,21 @@ import (
 )
 
 func main() {
+	// Проверяем, нужно ли использовать HTTPS
+	useHTTPS := repository.Getenv("USE_HTTPS", "false") == "true"
+	certFile := repository.Getenv("SSL_CERT", "ssl/cert.pem")
+	keyFile := repository.Getenv("SSL_KEY", "ssl/key.pem")
+	
 	// Инициализируем Swagger
 	docs.SwaggerInfo.Title = "UltraRezina API"
 	docs.SwaggerInfo.Description = "API для системы расчета резинотехнических изделий"
 	docs.SwaggerInfo.Version = "1.0"
 	docs.SwaggerInfo.Host = "localhost:8080"
+	if useHTTPS {
+		docs.SwaggerInfo.Schemes = []string{"https", "http"}
+	} else {
+		docs.SwaggerInfo.Schemes = []string{"http"}
+	}
 	docs.SwaggerInfo.BasePath = "/api/v1"
 
 	// Инициализируем базу данных
@@ -61,6 +73,30 @@ func main() {
 
 	// Запускаем сервер
 	addr := repository.Getenv("ADDR", ":8080")
-	log.Printf("UltraRezina REST API server listening on %s", addr)
-	log.Fatal(http.ListenAndServe(addr, routes))
+	
+	if useHTTPS {
+		// Проверяем наличие сертификатов
+		if _, err := os.Stat(certFile); os.IsNotExist(err) {
+			log.Printf("Warning: SSL certificate not found at %s, falling back to HTTP", certFile)
+			useHTTPS = false
+		} else if _, err := os.Stat(keyFile); os.IsNotExist(err) {
+			log.Printf("Warning: SSL key not found at %s, falling back to HTTP", keyFile)
+			useHTTPS = false
+		}
+	}
+	
+	if useHTTPS {
+		server := &http.Server{
+			Addr:    addr,
+			Handler: routes,
+			TLSConfig: &tls.Config{
+				MinVersion: tls.VersionTLS12,
+			},
+		}
+		log.Printf("UltraRezina REST API server listening on %s (HTTPS)", addr)
+		log.Fatal(server.ListenAndServeTLS(certFile, keyFile))
+	} else {
+		log.Printf("UltraRezina REST API server listening on %s (HTTP)", addr)
+		log.Fatal(http.ListenAndServe(addr, routes))
+	}
 }

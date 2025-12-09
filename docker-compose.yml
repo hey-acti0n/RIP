@@ -29,7 +29,7 @@ services:
       MINIO_CONSOLE_ADDRESS: ":9001"
     volumes:
       - minio-data:/data
-    command: server /data
+    command: server /data --address ":9000" --console-address ":9001"
   redis:
     image: redis:6.2-alpine
     restart: always

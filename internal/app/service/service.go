@@ -1,10 +1,13 @@
 package service
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
+	"net/http"
 	"strconv"
 	"time"
 
@@ -313,9 +316,9 @@ func NewCalculationService(svc *Service) *CalculationService {
 func (s *CalculationService) GetCartInfo(ctx context.Context) (*models.CartInfo, error) {
 	userID, ok := GetCurrentUserIDFromContext(ctx)
 	if !ok {
-		// Если пользователь не аутентифицирован, возвращаем пустую корзину
-		fmt.Printf("DEBUG: GetCartInfo - пользователь не аутентифицирован\n")
-		return &models.CartInfo{CalculationID: 0, ItemCount: 0}, nil
+		// Если пользователь не аутентифицирован, ищем расчет для гостя (creator_id = 0)
+		fmt.Printf("DEBUG: GetCartInfo - пользователь не аутентифицирован, ищем расчет для гостя\n")
+		userID = 0
 	}
 
 	fmt.Printf("DEBUG: GetCartInfo - userID: %d\n", userID)
@@ -446,8 +449,12 @@ func (s *CalculationService) GetCalculation(ctx context.Context, id int) (*model
 func (s *CalculationService) FormCalculation(ctx context.Context, id int, req models.FormCalculationRequest) (*models.FormCalculationResponse, error) {
 	userID, ok := GetCurrentUserIDFromContext(ctx)
 	if !ok {
-		return nil, errors.New("user not authenticated")
+		// Если пользователь не аутентифицирован, используем userID = 0 (гость)
+		userID = 0
+		fmt.Printf("DEBUG: FormCalculation - пользователь не аутентифицирован, userID = 0\n")
 	}
+
+	fmt.Printf("DEBUG: FormCalculation - userID: %d, id: %d\n", userID, id)
 
 	var calculation repository.Calculation
 	if err := s.db.Where("id = ? AND creator_id = ? AND status = ?", id, userID, "pending").First(&calculation).Error; err != nil {
@@ -491,6 +498,8 @@ func (s *CalculationService) FormCalculation(ctx context.Context, id int, req mo
 	var calculationResults []models.MaterialCalculationResult
 	totalCost := 0.0
 
+	fmt.Printf("DEBUG: FormCalculation - найдено материалов: %d\n", len(materialCalculations))
+
 	for _, mc := range materialCalculations {
 		// Получаем данные материала
 		var material repository.DBMaterial
@@ -501,6 +510,16 @@ func (s *CalculationService) FormCalculation(ctx context.Context, id int, req mo
 		// Выполняем расчет (упрощенная формула)
 		resultFreq := s.calculateFrequency(&req.InstallationWeight, &req.NaturalFrequency, material.Density, material.Thickness)
 		resultPercent := s.calculateEfficiency(resultFreq, req.NaturalFrequency)
+
+		// Сохраняем результаты расчета в БД
+		if err := s.db.Model(&mc).Updates(map[string]interface{}{
+			"result_freq":    resultFreq,
+			"result_percent": resultPercent,
+		}).Error; err != nil {
+			fmt.Printf("DEBUG: FormCalculation - ошибка сохранения результатов для материала %d: %v\n", material.ID, err)
+		} else {
+			fmt.Printf("DEBUG: FormCalculation - сохранены результаты для материала %d: freq=%.2f, percent=%.2f\n", material.ID, resultFreq, resultPercent)
+		}
 
 		// Стоимость (упрощенная формула)
 		unitCost := *material.Density * *material.Thickness * 10 // Примерная формула
@@ -531,25 +550,53 @@ func (s *CalculationService) FormCalculation(ctx context.Context, id int, req mo
 	}, nil
 }
 
-// calculateFrequency рассчитывает частоту вибрации
+// calculateFrequency рассчитывает собственную частоту виброизолятора
 func (s *CalculationService) calculateFrequency(installationWeight, naturalFreq, density, thickness *float64) float64 {
 	if density == nil || thickness == nil || installationWeight == nil || naturalFreq == nil {
 		return 0
 	}
-	// Упрощенная формула расчета частоты
-	return *naturalFreq * (1 + (*density**thickness) / *installationWeight)
+
+	// Физически правильная формула для собственной частоты виброизолятора
+	// f = (1/2π) * √(k/m), где k - жесткость, m - масса
+
+	// Жесткость виброизолятора зависит от материала и геометрии
+	// Для резиновых виброизоляторов: k = E * A / h, где E - модуль упругости, A - площадь, h - толщина
+	// Упрощенно: k = density * thickness * 1000 (коэффициент жесткости)
+
+	stiffness := *density * *thickness * 1000.0 // Н/м
+	mass := *installationWeight                 // кг
+
+	// Собственная частота: f = (1/2π) * √(k/m)
+	resultFreq := (1.0 / (2.0 * math.Pi)) * math.Sqrt(stiffness/mass)
+
+	return resultFreq
 }
 
-// calculateEfficiency рассчитывает процент эффективности
+// calculateEfficiency рассчитывает эффективность виброизоляции
 func (s *CalculationService) calculateEfficiency(resultFreq, naturalFreq float64) float64 {
-	// Упрощенная формула расчета эффективности
-	efficiency := (1 - math.Abs(resultFreq-naturalFreq)/naturalFreq) * 100
+	// Физически правильная формула эффективности виброизоляции
+	// η = 1 - (f/f0)², где f - частота виброизолятора, f0 - рабочая частота
+
+	if naturalFreq <= 0 || resultFreq <= 0 {
+		return 0
+	}
+
+	// Отношение частот
+	frequencyRatio := resultFreq / naturalFreq
+
+	// Эффективность виброизоляции: η = 1 - (f/f0)²
+	efficiency := (1.0 - (frequencyRatio * frequencyRatio)) * 100.0
+
+	// Эффективность не может быть отрицательной
 	if efficiency < 0 {
 		return 0
 	}
+
+	// Эффективность не может превышать 100%
 	if efficiency > 100 {
 		return 100
 	}
+
 	return efficiency
 }
 
@@ -562,7 +609,8 @@ func (s *CalculationService) CompleteCalculation(ctx context.Context, id int, ac
 	}
 
 	var calculation repository.Calculation
-	if err := s.db.Where("id = ? AND status = ?", id, "completed").First(&calculation).Error; err != nil {
+	// Ищем заявку со статусом "formed" (сформирован), чтобы завершить её
+	if err := s.db.Where("id = ? AND status = ?", id, "formed").First(&calculation).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrCalculationNotFound
 		}
@@ -596,13 +644,15 @@ func (s *CalculationService) CompleteCalculation(ctx context.Context, id int, ac
 			return nil, err
 		}
 
-		// Рассчитываем стоимость заказа
-		totalCost := s.calculateOrderCost(materialCalculations)
-		updates["total_cost"] = totalCost
+		// НЕ рассчитываем total_cost здесь - это будет сделано асинхронным сервисом
+		// total_cost остается пустым при создании заявки и обновляется асинхронно
 
 		// Рассчитываем дату доставки (в течение месяца)
 		deliveryDate := now.AddDate(0, 0, 30) // 30 дней
 		updates["delivery_date"] = &deliveryDate
+
+		// Запускаем асинхронный расчет total_cost через Django сервис
+		go s.callAsyncCalculationService(id)
 
 		// Создаем результаты вычислений
 		var calculationResults []models.CalculationResult
@@ -640,13 +690,19 @@ func (s *CalculationService) CompleteCalculation(ctx context.Context, id int, ac
 			})
 		}
 
+		// total_cost будет обновлен асинхронно, показываем 0
+		var totalCost float64 = 0
+		if calculation.TotalCost != nil {
+			totalCost = *calculation.TotalCost
+		}
+
 		response = &models.CompleteCalculationResponse{
 			CalculationID:      id,
 			Status:             newStatus,
 			TotalCost:          totalCost,
 			DeliveryDate:       &deliveryDate,
 			CalculationResults: calculationResults,
-			Message:            "Расчёт завершён",
+			Message:            "Расчёт завершён. Стоимость рассчитывается асинхронно.",
 		}
 	} else {
 		// Для отклонения расчёта
@@ -671,21 +727,37 @@ func (s *CalculationService) CompleteCalculation(ctx context.Context, id int, ac
 func (s *CalculationService) DeleteCalculation(ctx context.Context, id int) error {
 	userID, ok := GetCurrentUserIDFromContext(ctx)
 	if !ok {
-		return errors.New("user not authenticated")
+		// Если пользователь не аутентифицирован, используем userID = 0 (гость)
+		userID = 0
+		fmt.Printf("DEBUG: DeleteCalculation - пользователь не аутентифицирован, userID = 0\n")
 	}
+
+	fmt.Printf("DEBUG: DeleteCalculation - userID: %d, id: %d\n", userID, id)
 
 	var calculation repository.Calculation
 	if err := s.db.Where("id = ? AND creator_id = ? AND status IN (?)", id, userID, []string{"pending", "completed", "rejected"}).First(&calculation).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
+			fmt.Printf("DEBUG: DeleteCalculation - расчет не найден для userID: %d, id: %d\n", userID, id)
 			return ErrCalculationNotFound
 		}
 		return err
 	}
 
-	// Логическое удаление
-	if err := s.db.Model(&calculation).Update("status", "rejected").Error; err != nil {
+	fmt.Printf("DEBUG: DeleteCalculation - найден расчет ID: %d для userID: %d\n", calculation.ID, userID)
+
+	// Для черновиков (pending) меняем статус на "rejected", для остальных - на "deleted"
+	var newStatus string
+	if calculation.Status == "pending" {
+		newStatus = "rejected"
+	} else {
+		newStatus = "deleted"
+	}
+
+	if err := s.db.Model(&calculation).Update("status", newStatus).Error; err != nil {
 		return err
 	}
+
+	fmt.Printf("DEBUG: DeleteCalculation - расчет ID: %d статус изменен на %s\n", calculation.ID, newStatus)
 
 	return nil
 }
@@ -711,6 +783,69 @@ func (s *CalculationService) calculateUnitCost(material repository.DBMaterial) f
 		basePrice += *material.Thickness * 2.0
 	}
 	return basePrice
+}
+
+// UpdateCalculationResult обновляет результат расчета (total_cost) из асинхронного сервиса
+func (s *CalculationService) UpdateCalculationResult(ctx context.Context, id int, totalCost float64) error {
+	var calculation repository.Calculation
+	if err := s.db.Where("id = ?", id).First(&calculation).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrCalculationNotFound
+		}
+		return err
+	}
+
+	// Обновляем total_cost
+	if err := s.db.Model(&calculation).Update("total_cost", totalCost).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// callAsyncCalculationService вызывает асинхронный Django сервис для расчета total_cost
+func (s *CalculationService) callAsyncCalculationService(calculationID int) {
+	// URL Django сервиса (можно вынести в конфигурацию)
+	asyncServiceURL := "http://localhost:8000/calculate-cost"
+
+	// Подготавливаем данные для запроса
+	requestData := map[string]interface{}{
+		"calculation_id": calculationID,
+	}
+
+	jsonData, err := json.Marshal(requestData)
+	if err != nil {
+		fmt.Printf("Error marshaling request data for calculation %d: %v\n", calculationID, err)
+		return
+	}
+
+	// Создаем POST запрос
+	req, err := http.NewRequest("POST", asyncServiceURL, bytes.NewBuffer(jsonData))
+	if err != nil {
+		fmt.Printf("Error creating request for calculation %d: %v\n", calculationID, err)
+		return
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	// Выполняем запрос
+	client := &http.Client{
+		Timeout: 5 * time.Second, // Таймаут для инициирования запроса
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Printf("Error calling async service for calculation %d: %v\n", calculationID, err)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		fmt.Printf("Async service returned non-OK status for calculation %d: %d\n", calculationID, resp.StatusCode)
+		return
+	}
+
+	fmt.Printf("Successfully initiated async calculation for calculation %d\n", calculationID)
 }
 
 // MaterialCalculationService содержит методы для работы со связью расчёт-материал

@@ -3,6 +3,7 @@ package repository
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -99,7 +100,12 @@ func InitDB() *gorm.DB {
 	if err != nil {
 		panic(err)
 	}
-	_ = db.AutoMigrate(&DBMaterial{}, &Calculation{}, &MaterialCalculation{}, &User{})
+	log.Println("Подключение к базе данных установлено")
+	if err := db.AutoMigrate(&DBMaterial{}, &Calculation{}, &MaterialCalculation{}, &User{}); err != nil {
+		log.Printf("Ошибка при выполнении миграций: %v", err)
+		panic(err)
+	}
+	log.Println("Миграции базы данных выполнены успешно")
 	return db
 }
 

@@ -2,6 +2,7 @@ package rest
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -65,6 +66,7 @@ func (h *MaterialHandler) GetMaterials(w http.ResponseWriter, r *http.Request) {
 	// Получаем данные
 	materials, total, err := h.service.MaterialService.GetMaterials(r.Context(), filters)
 	if err != nil {
+		log.Printf("Error getting materials: %v", err)
 		h.writeError(w, http.StatusInternalServerError, "Ошибка получения материалов")
 		return
 	}
