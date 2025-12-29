@@ -465,7 +465,7 @@ func (s *CalculationService) FormCalculation(ctx context.Context, id int, req mo
 	}
 
 	// Обновляем расчет с переданными параметрами
-	now := time.Now()
+	now := time.Now().UTC()
 	updates := map[string]interface{}{
 		"status":              "completed",
 		"formed_at":           &now,
@@ -627,7 +627,7 @@ func (s *CalculationService) CompleteCalculation(ctx context.Context, id int, ac
 		return nil, ErrInvalidAction
 	}
 
-	now := time.Now()
+	now := time.Now().UTC()
 	updates := map[string]interface{}{
 		"status":       newStatus,
 		"completed_at": &now,
